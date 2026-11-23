@@ -151,7 +151,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 td .btn+.btn{margin-left:4px}
 
 /* 입력 */
-.field{display:grid;gap:6px}
+.field{display:grid;gap:6px;align-content:start}
 .field>label,.field>.lb{font-weight:600;font-size:13.5px}
 .help{font-size:13px;color:var(--muted)}
 .err{font-size:13px;color:var(--bad)}
@@ -306,13 +306,43 @@ body.pre .top,body.pre .shell,body.pre .foot{display:none}
 .umenu .me{display:grid;gap:2px;padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px}
 .umenu .drop button{border:0;background:none;text-align:left;padding:0 10px;min-height:40px;border-radius:8px}
 .umenu .drop button:hover{background:var(--bg)}
+#shell.noside{grid-template-columns:minmax(0,1fr)}
+#shell.noside .side{display:none}
+.home-grid{display:grid;gap:24px;grid-template-columns:minmax(0,1fr) 380px;align-items:start}
+.home-side{position:sticky;top:calc(var(--hdr) + 16px)}
+@media(max-width:1100px){.home-grid{grid-template-columns:minmax(0,1fr)}.home-side{position:static}}
+.home-side .inline{grid-template-columns:minmax(0,1fr)}
+.hpanel{gap:14px}
+.hgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
+.hcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:grid}
+.hcard:hover{border-color:var(--line-strong)}
+.thumb{height:92px;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 14px;display:grid;grid-template-rows:auto auto 1fr;gap:5px}
+.thumb .tl{display:block;height:6px;width:46%;border-radius:3px;background:var(--line-strong)}
+.thumb .tl.s{width:28%;opacity:.6}
+.thumb .tb{display:flex;align-items:flex-end;gap:5px;height:100%}
+.thumb .tb i{flex:1;border-radius:2px 2px 0 0;opacity:.85}
+.hc-body{padding:12px 14px;display:grid;gap:6px}
+.hc-body b{font-weight:600}
+.astrip{display:flex;gap:8px;flex-wrap:wrap}
+.astrip a{display:inline-flex;align-items:baseline;gap:6px;padding:8px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink-2);text-decoration:none;font-size:14px}
+.astrip a b{font-size:18px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.astrip a.hot{border-color:var(--busy);background:var(--busy-bg);color:var(--ink)}
+.astrip a.hot b{color:var(--busy)}
+.pol{display:flex;gap:10px;align-items:flex-start;padding:6px 0;cursor:pointer}
+.pol>span{display:grid;gap:2px}
+.pol b{font-weight:600}
+.inp.lim{width:56px;min-height:32px;padding:2px 6px;font-size:14px;text-align:right;display:inline-block}
+.umenu .drop.nlist{min-width:320px;max-width:min(380px,calc(100vw - 32px))}
+.nlist button{display:grid!important;gap:2px;padding:8px 10px!important;min-height:auto}
+.nlist button.unread span:first-child{font-weight:700}
+.nlist button.unread{border-left:3px solid var(--accent);border-radius:0 8px 8px 0}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 <div id="auth"></div>
 <header class="top" id="top"></header>
-<div class="shell"><nav class="side" id="side" aria-label="세부 메뉴"></nav><main id="main"></main></div>
+<div class="shell" id="shell"><nav class="side" id="side" aria-label="세부 메뉴"></nav><main id="main"></main></div>
 <p class="foot">Graphio VDAP 웹앱 데모 · 화면의 앱·데이터·사람 이름은 모두 예시이며, 입력 내용은 이 브라우저에만 저장됩니다. 앱 카탈로그 구성은 LinkaiReport 화면(대시보드, 보고서, 내 보고서, 공유받은 보고서, 보고서 개발 가이드, 새 보고서 만들기)을 기준으로 옮겼고, Studio의 사내 LLM 생성은 연결 전이라 데모 생성기로 동작합니다.</p>
 <div id="modal"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -339,7 +369,7 @@ const LOGO='<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAABGCAYA
 const DEMO_PW='vdap1234';
 /* 데모용 해시: 보안 용도가 아니라 비밀번호 원문을 저장하지 않기 위한 것 */
 const hashPw=(email,pw)=>{let h1=0xdeadbeef,h2=0x41c6ce57;const t=String(email).toLowerCase()+'|'+pw;for(let i=0;i<t.length;i++){const c=t.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (h2>>>0).toString(16).padStart(8,'0')+(h1>>>0).toString(16).padStart(8,'0')};
-let AUTH={},MENU=false;
+let AUTH={},MENU=false,NMENU=false;
 
 const ROLE_LABEL={admin:'관리자',maker:'메이커',viewer:'이용자'};
 const STATUS={live:['서비스 중','b-ok'],building:['빌드 중','b-busy'],failed:['빌드 실패','b-bad'],pending:['승인 대기','b-busy'],rejected:['반려됨','b-bad'],sleep:['절전','b-idle']};
@@ -459,9 +489,46 @@ appSel:'a1',catQ:'',catCat:'',catStatus:'',studioView:null,cur:null,resTab:'prev
     moreItems:[]
   };
 }
+function seedAdd(){return {
+    llms:[
+      {id:'m1',name:'Qwen3-32B',note:'범용 · 기본',engine:'vLLM',endpoint:'http://llm-gw.mobigen.internal/v1',hw:'DGX A100 ×2',ctx:'32K',status:'ok',on:true,def:true,lat:1.8,tok:4.2,req:1260,err:0.4},
+      {id:'m2',name:'EXAONE-3.5-32B',note:'한국어 문서',engine:'vLLM',endpoint:'http://llm-gw.mobigen.internal/v1',hw:'DGX A100 ×2',ctx:'32K',status:'ok',on:true,def:false,lat:2.1,tok:1.6,req:410,err:0.7},
+      {id:'m3',name:'Llama-3.3-70B',note:'긴 문서·코드',engine:'vLLM',endpoint:'http://llm-gw.mobigen.internal/v1',hw:'DGX A100 ×4',ctx:'128K',status:'warn',on:true,def:false,lat:4.6,tok:0.9,req:120,err:2.5},
+      {id:'m4',name:'Qwen2.5-Coder-32B',note:'코드 생성',engine:'Ollama',endpoint:'http://10.0.3.21:11434/v1',hw:'GPU 서버 1대',ctx:'32K',status:'off',on:false,def:false,lat:0,tok:0,req:0,err:0}
+    ],
+    llmDept:[['영업기획팀',2.4,5],['IT팀',2.1,5],['사업성장실',1.3,3],['데이터사업팀',0.7,3],['재무팀',0.2,2]],
+    llmPol:{ext:false,log:'30일',mask:true,maxTok:'8K'},
+    gits:[
+      {id:'g1',kind:'GitLab',name:'사내 GitLab',url:'https://gitlab.mobigen.example',auth:'그룹 액세스 토큰',exp:'2027-03-31',status:'ok',check:'11-23 09:00'},
+      {id:'g2',kind:'GitHub',name:'GitHub.com · mobigen-reports',url:'https://github.com/mobigen-reports',auth:'GitHub App',exp:'',status:'ok',check:'11-23 09:00'},
+      {id:'g3',kind:'GitLab',name:'협력사 GitLab',url:'https://git.partner.example',auth:'개인 액세스 토큰',exp:'2026-12-02',status:'warn',check:'11-22 18:00'}
+    ],
+    gitPol:{hosts:'gitlab.mobigen.example\ngithub.com/mobigen-reports\ngit.partner.example',branch:'main',webhook:true,keepPrev:true},
+    dataPol:{studioInt:true,mask:true,envOnly:true,approval:true,cache:'1시간'},
+    audit:[
+      ['11-23 09:12','김현업','로그인','-'],['11-23 08:51','최관리','로그인','-'],['11-20 16:40','최관리','승인','앱 등록 · 프로젝트 비용 현황'],
+      ['11-20 15:02','최관리','계정','정인사 초대 링크 발급'],['11-19 17:30','박이용','로그인','-'],['11-18 10:11','이개발','배포','현장 날씨·작업 일정 v2'],
+      ['11-17 10:02','김현업','배포','교육 신청 안내 v1 (실패)'],['11-14 09:40','최관리','설정','LLM 관리 · Llama-3.3-70B 추가'],['11-13 15:20','최관리','반려','전사 공개 · VOC 주간 리포트'],
+      ['11-12 11:05','최관리','설정','데이터 관리 · 재무 DB 접근 그룹 변경']
+    ].map(([at,who,kind,target],i)=>({id:'e'+i,at,who,kind,target})),
+  };}
+function enrich(o){
+  const ADD=seedAdd();Object.keys(ADD).forEach(k=>{if(!(k in o))o[k]=ADD[k]});
+  const REPO={a1:['GitHub','https://github.com/mobigen-reports/sales-dash','main','4f2a91c · 지역 필터 추가',true],a4:['GitHub','https://github.com/mobigen-reports/edu-guide','main','77d01aa · 신청 양식 추가',false],a5:['GitHub','https://github.com/mobigen-reports/ev-charger','main','c3e9b10 · 급속 비율 차트',true],a7:['GitLab','https://gitlab.mobigen.example/finance/pj-cost','release','9ab2e47 · 11월 집행 반영',false],a10:['GitLab','https://git.partner.example/stat/kosis-pop','main','51dd0c2 · 연령 구조 추가',true]};
+  o.apps.forEach(a=>{const r=REPO[a.id];if(r&&!a.repo){a.src=r[0];a.repo=r[1];a.branch=r[2];a.commit=r[3];a.auto=r[4]}});
+  if(!o.apps.some(a=>a.id==='a11')){o.apps.push({id:'a11',name:'VDAP 사용 현황',slug:'vdap-usage',cat:'현황 보고',src:'Studio',llm:'Qwen3-32B (사내)',status:'live',vis:'Private',owner:'최관리',dept:'IT팀',views:46,updated:'2026-11-21',ver:2,data:['jira'],desc:'부서별 앱 수, 빌드 성공률, Studio 생성 건수'});o.urls.push({id:'u11',appId:'a11',type:'Private',url:`https://${DOMAIN}/r/vdap-usage`,expires:'',views:46,blocked:false})}
+  const H={kosis:['warn','인증키 만료 2026-12-05'],molit:['err','응답 시간 초과 (30초)']};
+  const G={sales:['영업기획팀','경영기획팀'],jira:['전사'],wiki:['전사'],facility:['설비팀','생산팀'],fin:['재무팀'],hr:['인사팀']};
+  o.int.concat(o.ext).forEach(d=>{if(!d.health){const h=H[d.id]||['ok',''];d.health=h[0];d.note=h[1];d.lastCheck='11-23 08:00'}});
+  o.int.forEach(d=>{if(!d.groups)d.groups=G[d.id]||[d.owner]});
+  const PA={a1:{who:'최관리',type:'사용자',role:'열람'},a7:{who:'IT팀',type:'그룹',role:'열람'},a10:{who:'전사',type:'그룹',role:'열람'}};
+  Object.entries(PA).forEach(([k,p])=>{const ap=o.apps.find(a=>a.id===k);if(!ap)return;const l=o.perm[k]||(o.perm[k]=[{who:ap.owner,type:'사용자',role:'관리'}]);if(!l.some(q=>q.who===p.who))l.push(p)});
+  return o;
+}
 let S;
 try{const raw=localStorage.getItem(KEY);S=raw?JSON.parse(raw):null}catch(e){S=null}
 if(!S||S.v!==3)S=seed();
+enrich(S);
 function loadSession(){try{const raw=localStorage.getItem(SKEY)||sessionStorage.getItem(SKEY);if(!raw)return null;const o=JSON.parse(raw);return o.exp>Date.now()?o.uid:null}catch(e){return null}}
 function setSession(id,keep){const v=JSON.stringify({uid:id,exp:Date.now()+(keep?7*864e5:12*36e5)});try{localStorage.removeItem(SKEY)}catch(e){}try{sessionStorage.removeItem(SKEY)}catch(e){}try{(keep?localStorage:sessionStorage).setItem(SKEY,v)}catch(e){try{localStorage.setItem(SKEY,v)}catch(_){}}}
 function clearSession(){try{localStorage.removeItem(SKEY)}catch(e){}try{sessionStorage.removeItem(SKEY)}catch(e){}}
@@ -492,12 +559,12 @@ function notify(to,t,go){S.notis.unshift({id:uid('n'),to,t,go,at:stamp(new Date(
 
 /* ---------- 탭 구성 ---------- */
 const TABS=[
-  {id:'home',label:'홈',subs:[['overview','홈','홈'],['wish','만들고 싶은 앱','홈'],['mine','내가 만든 앱','홈'],['memo','메모','홈'],['noti','알림','홈']]},
+  {id:'home',label:'홈',noSide:true,subs:[['overview','홈','홈']]},
   {id:'catalog',label:'앱 카탈로그',tag:'LinkaiReport',links:[['LinkaiReport 원본',LINKAI]],subs:[['dash','대시보드','LinkaiReport'],['reports','보고서','LinkaiReport'],['mine','내 보고서','LinkaiReport',{ind:1}],['shared','공유받은 보고서','LinkaiReport',{ind:1}],['guide','보고서 개발 가이드','LinkaiReport'],['new','새 보고서 만들기','LinkaiReport',{hidden:1,parent:'reports'}]]},
   {id:'studio',label:'Studio',tag:'사내 LLM',subs:[['new','만들기','Studio'],['weekly','주간보고','빠른 시작'],['monthly','월간 실적 보고서','빠른 시작'],['dashboard','KPI 대시보드','빠른 시작'],['history','생성 이력','기록']]},
   {id:'templates',label:'템플릿',subs:[['all','전체','용도'],['report','보고서','용도'],['dash','대시보드','용도'],['tool','입력 양식·업무 도구','용도'],['guide','개발 가이드 파일','파일']]},
   {id:'data',label:'데이터',subs:[['ext','외부 데이터','구분'],['int','내부 데이터','구분'],['connect','연결 추가','관리'],['usage','사용 현황','관리']]},
-  {id:'admin',label:'관리',subs:[['pending','승인 대기','승인'],['rejected','반려','승인'],['approved','승인 완료','승인'],['members','구성원 계정','조직'],['urls','공유 중인 URL','공유'],['perm','사용자·권한','공유'],['env','환경변수','앱 환경'],['deploy','배포 이력','앱 환경'],['settings','앱 설정','앱 환경'],['skills','스킬 관리','Studio'],['more','추가 예정 항목','기타']]}
+  {id:'admin',label:'관리',subs:[['pending','승인 대기','승인'],['rejected','반려','승인'],['approved','승인 완료','승인'],['members','구성원 계정','조직'],['audit','활동 로그','조직',{admin:1}],['urls','공유 중인 URL','공유'],['perm','사용자·권한','공유'],['env','환경변수','앱 환경'],['deploy','배포 이력','앱 환경'],['settings','앱 설정','앱 환경'],['data','데이터 관리','플랫폼',{admin:1}],['llm','LLM 관리','플랫폼',{admin:1}],['git','GitLab 관리','플랫폼',{admin:1}],['skills','스킬 관리','플랫폼'],['more','추가 예정 항목','기타']]}
 ];
 let R={tab:'home',sub:'overview'};
 function parseHash(){
@@ -548,6 +615,8 @@ function renderTop(){
     <nav class="tabs" aria-label="주 메뉴">${TABS.map(t=>`<a href="#${t.id}-${t.subs[0][0]}" class="${R.tab===t.id?'on':''}">${t.label}${t.tag?`<small>${t.tag}</small>`:''}</a>`).join('')}</nav>
     <div class="right">
       <button class="btn" data-act="goApprovals" aria-label="승인 대기 ${pc}건">승인${pc?` <span class="cnt">${pc}</span>`:''}</button>
+      <div class="umenu"><button class="btn" data-act="nmenu" aria-expanded="${NMENU}" aria-label="알림 ${unread()}건">알림${unread()?` <span class="cnt">${unread()}</span>`:''}</button>
+      ${NMENU?`<div class="drop nlist" role="menu"><div class="row sb" style="padding:6px 10px"><b>알림</b>${unread()?`<button class="linkbtn" data-act="readAll" style="min-height:auto">모두 읽음</button>`:''}</div>${S.notis.filter(n=>n.to===u.name).slice(0,8).map(n=>`<button role="menuitem" data-act="noti" data-id="${n.id}" class="${n.read?'':'unread'}"><span>${esc(n.t)}</span><span class="sample">${n.at}</span></button>`).join('')||'<p class="muted" style="padding:10px">알림이 없습니다</p>'}</div>`:''}</div>
       ${modeSeg()}
       <div class="umenu"><button class="btn ghost ubtn" data-act="umenu" aria-expanded="${MENU}" aria-haspopup="menu"><span class="avatar" aria-hidden="true">${esc(u.name.slice(0,1))}</span><span class="who">${esc(u.name)}<small>${u.role} · ${esc(u.dept)}</small></span><span aria-hidden="true">▾</span></button>
       ${MENU?`<div class="drop" role="menu"><div class="me"><b>${esc(u.name)}</b><span class="mono sample">${esc(u.email)}</span><span class="sample">${esc(S.org.name)} · ${u.role} · ${esc(u.dept)}</span></div><button role="menuitem" data-act="myAccount">내 계정 · 비밀번호 변경</button>${isAdmin()?`<button role="menuitem" data-act="goMembers">구성원 계정 관리</button>`:''}<button role="menuitem" data-act="logout">로그아웃</button></div>`:''}</div>
@@ -561,6 +630,8 @@ function sideCount(tab,sub){
   if(k==='home-wish')return `<span class="n">${S.wishes.filter(w=>w.owner===U().name).length}</span>`;
   if(k==='catalog-mine'){const n=myOrAll().filter(a=>a.status==='building'||a.status==='failed').length;return n?`<span class="n hot">${n}</span>`:`<span class="n">${myApps().length}</span>`}
   if(k==='catalog-shared')return `<span class="n">${sharedApps().length}</span>`;
+  if(k==='admin-data'){const n=S.int.concat(S.ext).filter(d=>d.health==='warn'||d.health==='err').length;return n?`<span class="n hot">${n}</span>`:''}
+  if(k==='admin-git'){const n=S.gits.filter(x=>x.status!=='ok').length;return n?`<span class="n hot">${n}</span>`:''}
   if(k==='admin-skills')return `<span class="n">${S.skills.filter(x=>x.on).length}</span>`;
   if(k==='admin-pending'){const n=pendingCount();return n?`<span class="n hot">${n}</span>`:''}
   if(k==='admin-rejected')return `<span class="n">${visibleApprovals().filter(r=>r.status==='반려').length}</span>`;
@@ -570,8 +641,9 @@ function sideCount(tab,sub){
 function renderSide(){
   const T=TABS.find(t=>t.id===R.tab);let last='',h='';
   const cur=T.subs.find(x=>x[0]===R.sub),parent=cur&&cur[3]&&cur[3].parent;
+  const shell=$('#shell');shell.classList.toggle('noside',!!T.noSide);if(T.noSide){$('#side').innerHTML='';return}
   T.subs.forEach(([id,label,group,o])=>{
-    o=o||{};if(o.hidden)return;
+    o=o||{};if(o.hidden||(o.admin&&!isAdmin()))return;
     if(group!==last){h+=`<h4>${group}</h4>`;last=group}
     h+=`<a href="#${T.id}-${id}" class="${R.sub===id||parent===id?'on':''}${o.ind?' ind':''}">${label}${sideCount(T.id,id)}</a>`;
   });
@@ -609,16 +681,44 @@ function memoBox(n){
   ${list.length?list.map(m=>`<div class="mitem ${m.pin?'pin':''}"><p>${esc(m.text)}</p><div class="row sb"><span class="sample">${m.at}${m.pin?' · 고정':''}</span><span class="row"><button class="btn sm ghost" data-act="pinMemo" data-id="${m.id}">${m.pin?'고정 해제':'고정'}</button><button class="btn sm ghost" data-act="delMemo" data-id="${m.id}">삭제</button></span></div></div>`).join(''):`<p class="muted">저장한 메모가 없습니다.</p>`}</div>`;
 }
 const V={};
+function thumb(a){
+  let h=0;for(const c of a.slug)h=(h*31+c.charCodeAt(0))>>>0;
+  const bars=Array.from({length:8},(_,i)=>30+((h>>>(i*3))%60));
+  const col=a.cat==='데이터 탐색'?'var(--ext-line)':a.src==='Studio'?'var(--studio)':'var(--accent)';
+  return `<div class="thumb" aria-hidden="true"><span class="tl"></span><span class="tl s"></span><div class="tb">${bars.map(v=>`<i style="height:${v}%;background:${col}"></i>`).join('')}</div></div>`;
+}
+function homeCard(a){
+  const mine=isMine(a)||isAdmin();
+  return `<article class="hcard">${thumb(a)}<div class="hc-body"><div class="row sb" style="flex-wrap:nowrap;align-items:flex-start"><b>${esc(a.name)}</b>${badge(a.status)}</div>
+    <span class="sample">${esc(a.owner)} · ${esc(a.dept)} · ${a.updated}</span>
+    <div class="row"><button class="btn sm pri" data-act="open" data-id="${a.id}">열기</button>${mine&&isMine(a)?`<button class="btn sm" data-act="manage" data-id="${a.id}">관리</button>`:''}<span class="tag ${a.vis==='Public'?'pub':''}" style="margin-left:auto">${a.vis}</span></div></div></article>`;
+}
+function adminStrip(){
+  if(!isAdmin())return '';
+  const items=[
+    [pendingCount(),'승인 대기','admin-pending'],
+    [S.int.concat(S.ext).filter(d=>d.health==='warn'||d.health==='err').length,'점검 필요 데이터','admin-data'],
+    [S.llms.filter(m=>m.on&&m.status==='warn').length,'점검 필요 LLM','admin-llm'],
+    [S.gits.filter(x=>x.status!=='ok').length,'토큰 만료 임박 Git','admin-git'],
+    [S.accounts.filter(a=>a.status==='invited').length,'초대 수락 대기','admin-members']
+  ];
+  return `<nav class="astrip" aria-label="관리자 할 일">${items.map(([n,l,h])=>`<a href="#${h}" class="${n?'hot':''}"><b>${n}</b>${l}</a>`).join('')}</nav>`;
+}
+function homePanel(){
+  const pane=S.homePane||'memo';
+  return `<section class="card hpanel"><div class="rtabs" role="tablist">${[['memo','메모'],['wish','만들고 싶은 앱']].map(([k,l])=>`<button role="tab" data-act="homePane" data-v="${k}" class="${pane===k?'on':''}" aria-selected="${pane===k}">${l}</button>`).join('')}</div>
+  ${pane==='memo'?memoBox(8):`${wishForm()}<div class="sec" style="gap:10px">${myWishes().map(wishCard).join('')||'<p class="muted">적어 둔 앱이 없습니다.</p>'}</div>`}</section>`;
+}
 V['home-overview']=()=>{
-  const u=U();
-  let h=ph(u?`${u.name}님의 홈`:'Graphio VDAP',u?`${u.dept} · ${u.role} · 만들 앱, 만든 앱, 메모를 한 화면에서 봅니다`:'AI로 만든 웹 앱을 등록·공유·운영합니다. 로그인하면 역할에 맞는 화면이 열립니다.',u?'':loginBtn);
-  h+=`<section class="sec"><div class="sec-h"><h2>만들고 싶은 앱</h2><a class="btn sm" href="#home-wish">전체 보기</a></div>`;
-  if(!u)h+=needLogin('로그인하면 만들고 싶은 앱을 적어 두고 Studio나 카탈로그로 바로 넘길 수 있습니다');
-  else h+=wishForm()+`<div class="grid">${myWishes().slice(0,6).map(wishCard).join('')||'<p class="muted">적어 둔 앱이 없습니다.</p>'}</div>`;
-  h+=`</section><div class="split"><section class="sec"><div class="sec-h"><h2>내가 만든 앱</h2><a class="btn sm" href="#home-mine">전체 보기</a></div>${myAppsList(5)}</section>
-    <section class="sec"><div class="sec-h"><h2>메모</h2><a class="btn sm" href="#home-memo">전체 보기</a></div>${memoBox(4)}</section></div>`;
-  return h;
+  const u=U(),mine=myApps(),shared=sharedApps();
+  return ph(`${esc(u.name)}님의 홈`,`${esc(S.org.name)} · ${esc(u.dept)} · ${u.role}`,canMake()?`<a class="btn pri" href="#catalog-new">+ 새 보고서</a><a class="btn st" href="#studio-new">Studio로 만들기</a>`:'')
+  +adminStrip()
+  +`<div class="home-grid"><div class="sec" style="gap:26px">
+    <section class="sec"><div class="sec-h"><h2>내가 만든 앱 <span class="sample" style="font-weight:400">${mine.length}개</span></h2><a class="btn sm" href="#catalog-mine">전체 보기</a></div>${mine.length?`<div class="hgrid">${mine.map(homeCard).join('')}</div>`:empty('아직 만든 앱이 없습니다',canMake()?`<a class="btn pri" href="#catalog-new">+ 새 보고서</a>`:'')}</section>
+    <section class="sec"><div class="sec-h"><h2>공유받은 대시보드 <span class="sample" style="font-weight:400">${shared.length}개</span></h2><a class="btn sm" href="#catalog-shared">전체 보기</a></div>${shared.length?`<div class="hgrid">${shared.map(homeCard).join('')}</div>`:empty('나나 우리 부서에 공유된 대시보드가 없습니다')}</section>
+  </div><aside class="home-side">${homePanel()}</aside></div>`;
 };
+
 V['home-wish']=()=>ph('만들고 싶은 앱','내부 데이터로 만들 앱은 Studio로, 외부 데이터·외부 LLM으로 만들 앱은 앱 카탈로그 등록으로 넘깁니다.')+(S.user?wishForm()+`<div class="grid">${myWishes().map(wishCard).join('')||'<p class="muted">적어 둔 앱이 없습니다.</p>'}</div>`:needLogin());
 V['home-mine']=()=>ph('내가 만든 앱',S.user?`${myApps().length}개 · 상태와 주소를 확인하고 관리 화면으로 이동합니다`:'',canMake()?`<a class="btn pri" href="#catalog-new">+ 새 보고서</a><a class="btn st" href="#studio-new">Studio로 만들기</a>`:'')+myAppsList();
 V['home-memo']=()=>ph('메모','앱 작업과 승인 일정 등을 적어 둡니다. 고정한 메모가 위에 옵니다.')+memoBox();
@@ -727,7 +827,7 @@ V['catalog-guide']=()=>ph('보고서 개발 가이드','외부 LLM에 가이드�
   <section class="sec"><div class="sec-h"><h2>외부 LLM에 줄 요청 예시</h2><button class="btn sm" data-act="copy" data-text="${esc(PROMPT)}">복사</button></div><pre class="code">${esc(PROMPT)}</pre></section>`;
 
 /* ---------- Studio (사내 LLM + 스킬 + 내부 데이터) ---------- */
-const MODELS=[['Qwen3-32B','범용 · 기본'],['EXAONE-3.5-32B','한국어 문서'],['Llama-3.3-70B','긴 문서·코드']];
+const llmList=()=>S.llms.filter(m=>m.on&&m.status!=='off').map(m=>[m.name,m.note]);
 const PRESETS={
   weekly:{prompt:'이번 주 주간보고를 만들어 줘. 주요 지표, 완료 업무, 이슈, 다음 주 계획 순서로.',skills:['k-guide','k-data','k-weekly','k-tone'],data:['sales','jira','wiki']},
   monthly:{prompt:'10월 실적 보고서를 만들어 줘. 월별 매출과 목표, 지역별 누적 매출을 차트로.',skills:['k-guide','k-data','k-monthly','k-chart','k-tone'],data:['sales','jira']},
@@ -843,10 +943,11 @@ function skillPicker(){
 }
 function composer(){
   const c=S.st;
+  if(!llmList().some(m=>m[0]===c.model)){const d=S.llms.find(m=>m.def&&m.on)||S.llms.find(m=>m.on);if(d)c.model=d.name}
   const chips=c.skills.map(id=>{const k=skillById(id);if(!k)return '';return `<span class="sk-chip ${k.kind==='가이드'?'guide':''}"><em>${k.kind}</em>${esc(k.file)}<button type="button" data-act="stSkillOff" data-id="${id}" aria-label="${esc(k.name)} 빼기">×</button></span>`}).join('');
   return `<form class="composer" data-form="gen" novalidate>
     <div class="cmp-top"><span class="llm">사내 LLM</span>
-      <select class="inp sel" data-change="stModel" aria-label="모델">${MODELS.map(m=>`<option value="${m[0]}" ${c.model===m[0]?'selected':''}>${m[0]} · ${m[1]}</option>`).join('')}</select>
+      <select class="inp sel" data-change="stModel" aria-label="모델">${llmList().map(m=>`<option value="${m[0]}" ${c.model===m[0]?'selected':''}>${m[0]} · ${m[1]}</option>`).join('')}</select>
       <select class="inp sel" data-change="stOut" aria-label="결과물 형태">${[['auto','형태 자동 판단'],['weekly','주간보고'],['monthly','월간 실적 보고서'],['dashboard','KPI 대시보드']].map(([k,l])=>`<option value="${k}" ${c.out===k?'selected':''}>${l}</option>`).join('')}</select>
       <select class="inp sel" data-change="stDept" aria-label="부서">${DEPTS.map(d=>`<option ${c.dept===d?'selected':''}>${d}</option>`).join('')}</select></div>
     <textarea id="st-prompt" class="prompt" placeholder="만들 것을 문장으로 적어 주세요. 예: 이번 주 영업기획팀 주간보고, 지역별 매출은 막대 차트로" aria-label="요청 내용">${esc(c.prompt)}</textarea>
@@ -1119,7 +1220,7 @@ function linkView(kind,token){
     </form>`);
 }
 function login(a,keep){
-  a.lastLogin=stamp(new Date());S.user=a.id;setSession(a.id,keep);
+  a.lastLogin=stamp(new Date());S.user=a.id;setSession(a.id,keep);audit('로그인','-');
   if(DEPTS.includes(a.dept))S.st.dept=a.dept;
   AUTH={};MENU=false;save();
 }
@@ -1144,6 +1245,79 @@ V['admin-members']=()=>{
     return `<tr><td><b>${esc(a.name)}</b>${self?' <span class="tag">나</span>':''}<div class="mono sample">${esc(a.email)}</div></td><td>${esc(a.dept)}</td><td><select class="inp" style="width:auto;min-height:36px" data-change="accRole" data-id="${a.id}" aria-label="${esc(a.name)} 역할">${Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}" ${a.role===k?'selected':''}>${v}</option>`).join('')}</select></td><td><span class="badge ${ACC_ST[a.status][1]}">${ACC_ST[a.status][0]}</span></td><td>${a.lastLogin||'-'}</td><td>${act}</td></tr>`}).join('')}</tbody></table></div>
   <form class="card form" data-form="org" novalidate><h3>워크스페이스</h3><div class="split even"><div class="field"><label for="og-name">회사 이름</label><input id="og-name" class="inp" value="${esc(S.org.name)}"></div><div class="field"><label for="og-domain">회사 이메일 도메인</label><input id="og-domain" class="inp mono" value="${esc(S.org.domain)}"></div></div><span class="help">초대는 이 도메인 이메일로만 보낼 수 있습니다</span><p class="err" id="og-err"></p><button class="btn" style="justify-self:start">저장</button></form>`
   +mine;
+};
+
+/* ---------- 관리: 플랫폼 ---------- */
+const HEALTH={ok:['정상','b-ok'],warn:['점검 필요','b-busy'],err:['연결 오류','b-bad'],off:['사용 중지','b-idle'],check:['확인 중','b-busy']};
+const hb=k=>{const x=HEALTH[k]||HEALTH.ok;return `<span class="badge ${x[1]}">${x[0]}</span>`};
+const adminOnly=(t,sub)=>isAdmin()?null:ph(t,sub)+empty('관리자만 볼 수 있는 메뉴입니다');
+function audit(kind,target){S.audit.unshift({id:uid('e'),at:stamp(new Date()),who:U()?U().name:'-',kind,target:target||'-'})}
+const chk=(change,k,on,label,help,dis)=>`<label class="pol"><input type="checkbox" class="sw" data-change="${change}" data-k="${k}" ${on?'checked':''} ${dis?'disabled':''}><span><b>${label}</b>${help?`<span class="help">${help}</span>`:''}</span></label>`;
+V['admin-data']=()=>{
+  const g=adminOnly('데이터 관리');if(g)return g;
+  const rows=[...S.int.map(d=>Object.assign({},d,{k:'int'})),...S.ext.map(d=>Object.assign({},d,{k:'ext'}))];
+  const warn=rows.filter(d=>d.health==='warn'||d.health==='err').length;
+  const req=S.approvals.filter(r=>r.status==='대기'&&(r.kind==='데이터 사용'||r.kind==='데이터 연결')).length;
+  const P=S.dataPol;
+  return ph('데이터 관리','Studio가 쓰는 회사 내부 데이터와 카탈로그 보고서가 호출하는 외부 데이터의 연결 상태, 접근 그룹, 사용 정책을 관리합니다.',`<a class="btn" href="#data-connect">+ 연결 추가</a>`)
+  +`<div class="grid sm"><div class="tile"><span class="v">${S.int.length}</span><span class="k">내부 연결</span></div><div class="tile"><span class="v">${S.ext.length}</span><span class="k">외부 데이터</span></div><div class="tile"><span class="v" style="color:${warn?'var(--busy)':'inherit'}">${warn}</span><span class="k">점검 필요·오류</span></div><a class="tile" href="#admin-pending" style="text-decoration:none;color:inherit"><span class="v">${req}</span><span class="k">사용·연결 요청 대기 ›</span></a></div>
+  <div class="tbl"><table class="stack"><thead><tr><th>데이터</th><th>구분</th><th>종류</th><th>연결 상태</th><th class="num">사용 앱</th><th>접근 허용</th><th></th></tr></thead><tbody>${rows.map(d=>`<tr><td><b>${esc(d.name)}</b><div class="sample">${esc(d.k==='int'?d.owner:d.org)}</div></td><td><span class="tag ${d.k}">${d.k==='int'?'내부':'외부'}</span></td><td>${esc(d.k==='int'?d.kind:d.how)}</td><td>${hb(d.health)}<div class="sample">${esc(d.note||'')}${d.note?' · ':''}확인 ${esc(d.lastCheck||'-')}</div></td><td class="num">${usedBy(d.id).length}</td><td>${d.k==='int'?`${(d.groups||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join(' ')||'<span class="muted">없음</span>'} <button class="btn sm ghost" data-act="dGroups" data-id="${d.id}">변경</button>`:`<span class="mono sample">${esc(d.envKey)}</span>`}</td><td><button class="btn sm" data-act="dTest" data-id="${d.id}">연결 테스트</button><button class="btn sm ghost" data-act="dToggle" data-id="${d.id}">${d.health==='off'?'다시 사용':'사용 중지'}</button></td></tr>`).join('')}</tbody></table></div>
+  <section class="card"><h3>데이터 정책</h3>
+    ${chk('dpol','studioInt',P.studioInt,'Studio는 회사 내부 데이터만 사용','외부 API는 앱 카탈로그 보고서에서만 호출합니다')}
+    ${chk('dpol','approval',P.approval,'내부 데이터 사용은 관리자 승인 후 허용','요청은 승인 대기함으로 들어옵니다')}
+    ${chk('dpol','mask',P.mask,'개인정보 열 기본 마스킹','이름·연락처·주민번호로 표시된 열을 조회 결과에서 가립니다')}
+    ${chk('dpol','envOnly',P.envOnly,'외부 API 인증키는 환경변수로만 보관','코드나 ZIP에 키가 있으면 빌드를 멈춥니다')}
+    <div class="row"><label for="dp-cache" class="lb" style="font-weight:600">조회 결과 캐시</label><select id="dp-cache" class="inp" style="width:auto" data-change="dpolCache">${['캐시 없음','1시간','24시간'].map(x=>`<option ${P.cache===x?'selected':''}>${x}</option>`).join('')}</select></div>
+  </section>`;
+};
+V['admin-llm']=()=>{
+  const g=adminOnly('LLM 관리');if(g)return g;
+  const L=S.llms,on=L.filter(m=>m.on&&m.status!=='off');
+  const tok=L.reduce((s,m)=>s+m.tok,0),req=L.reduce((s,m)=>s+m.req,0);
+  const lat=on.length?(on.reduce((s,m)=>s+m.lat*m.req,0)/Math.max(1,on.reduce((s,m)=>s+m.req,0))):0;
+  const err=req?L.reduce((s,m)=>s+m.err*m.req,0)/req:0;
+  const P=S.llmPol,dmax=Math.max(...S.llmDept.map(d=>d[2]));
+  return ph('LLM 관리','Studio가 호출하는 사내 LLM 모델과 엔드포인트, 부서별 사용 한도, 프롬프트 정책을 관리합니다.',`<button class="btn pri" data-act="llmAddOpen">${S.llmAdd?'추가 닫기':'+ 모델 추가'}</button>`)
+  +`<div class="grid sm"><div class="tile"><span class="v">${tok.toFixed(1)}M</span><span class="k">이번 달 토큰</span></div><div class="tile"><span class="v">${req.toLocaleString()}</span><span class="k">이번 달 요청</span></div><div class="tile"><span class="v">${lat.toFixed(1)}초</span><span class="k">평균 응답 시간</span></div><div class="tile"><span class="v">${err.toFixed(1)}%</span><span class="k">오류율</span></div></div>`
+  +(S.llmAdd?`<form class="card form" data-form="llmAdd" novalidate style="max-width:none"><h3>모델 추가</h3>
+    <div class="split even"><div class="field"><label for="lm-name">모델 이름</label><input id="lm-name" class="inp" placeholder="예: Qwen3-14B"></div><div class="field"><label for="lm-ep">엔드포인트 (OpenAI 호환)</label><input id="lm-ep" class="inp mono" placeholder="http://llm-gw.mobigen.internal/v1"></div></div>
+    <div class="split even"><div class="field"><label for="lm-engine">서빙 엔진</label><select id="lm-engine" class="inp">${['vLLM','TGI','Ollama','Triton'].map(x=>`<option>${x}</option>`).join('')}</select></div><div class="field"><label for="lm-ctx">컨텍스트 길이</label><select id="lm-ctx" class="inp">${['8K','32K','128K'].map(x=>`<option ${x==='32K'?'selected':''}>${x}</option>`).join('')}</select></div></div>
+    <div class="field"><label for="lm-note">용도 설명</label><input id="lm-note" class="inp" placeholder="Studio 모델 목록에 보이는 설명"></div><p class="err" id="lm-err"></p><button class="btn pri" style="justify-self:start">추가하고 연결 테스트</button></form>`:'')
+  +`<div class="tbl"><table class="stack"><thead><tr><th>모델</th><th>엔드포인트</th><th>서빙</th><th>상태</th><th class="num">응답</th><th class="num">토큰(월)</th><th>기본</th><th>사용</th><th></th></tr></thead><tbody>${L.map(m=>`<tr><td><b>${esc(m.name)}</b><div class="sample">${esc(m.note)} · ${m.ctx}</div></td><td class="mono sample">${esc(m.endpoint)}</td><td>${esc(m.engine)}<div class="sample">${esc(m.hw)}</div></td><td>${hb(m.status)}</td><td class="num">${m.lat?m.lat.toFixed(1)+'초':'-'}</td><td class="num">${m.tok.toFixed(1)}M</td><td><input type="radio" name="llm-def" class="sw" data-change="llmDef" value="${m.id}" ${m.def?'checked':''} ${m.on?'':'disabled'} aria-label="${esc(m.name)} 기본 모델"></td><td><input type="checkbox" class="sw" data-change="llmOn" data-id="${m.id}" ${m.on?'checked':''} aria-label="${esc(m.name)} 사용"></td><td><button class="btn sm" data-act="llmTest" data-id="${m.id}">연결 테스트</button></td></tr>`).join('')}</tbody></table></div>
+  <div class="split even"><section class="card"><h3>부서별 사용량 · 월 한도</h3><div class="hbars">${S.llmDept.map((d,i)=>`<div class="hbar" style="grid-template-columns:88px minmax(0,1fr) 150px"><span>${esc(d[0])}</span><span class="track ${d[1]/d[2]>.8?'':'st'}"><i style="width:${d[1]/dmax*100}%"></i></span><span class="v">${d[1]}M / <input class="inp lim" type="number" min="1" step="1" value="${d[2]}" data-change="llmLimit" data-i="${i}" aria-label="${esc(d[0])} 월 한도">M</span></div>`).join('')}</div><span class="help">한도를 넘으면 그 부서의 Studio 생성이 다음 달까지 멈춥니다</span></section>
+  <section class="card"><h3>프롬프트 정책</h3>
+    ${chk('llmPol','ext',P.ext,'외부 LLM API 사용 허용','끄면 Studio는 위 사내 모델만 씁니다')}
+    ${chk('llmPol','mask',P.mask,'요청 전 개인정보 마스킹','이름·연락처를 가린 뒤 모델에 보냅니다')}
+    <div class="row"><label for="lp-log" class="lb" style="font-weight:600">프롬프트·응답 로그 보관</label><select id="lp-log" class="inp" style="width:auto" data-change="llmPolSel" data-k="log">${['보관 안 함','30일','90일'].map(x=>`<option ${P.log===x?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div class="row"><label for="lp-max" class="lb" style="font-weight:600">1회 최대 출력</label><select id="lp-max" class="inp" style="width:auto" data-change="llmPolSel" data-k="maxTok">${['4K','8K','16K'].map(x=>`<option value="${x}" ${P.maxTok===x?'selected':''}>${x} 토큰</option>`).join('')}</select></div>
+  </section></div>`;
+};
+const gitApps=()=>S.apps.filter(a=>a.src==='GitHub'||a.src==='GitLab');
+V['admin-git']=()=>{
+  const g=adminOnly('GitLab 관리');if(g)return g;
+  const P=S.gitPol,apps=gitApps();
+  return ph('GitLab 관리','보고서 소스를 가져오는 GitLab·GitHub 연결과 저장소별 자동 배포를 관리합니다.',`<button class="btn pri" data-act="gitAddOpen">${S.gitAdd?'추가 닫기':'+ Git 연결 추가'}</button>`)
+  +(S.gitAdd?`<form class="card form" data-form="gitAdd" novalidate style="max-width:none"><h3>Git 연결 추가</h3>
+    <div class="split even"><div class="field"><label for="gt-kind">종류</label><select id="gt-kind" class="inp"><option>GitLab</option><option value="GitHub">GitHub</option></select></div><div class="field"><label for="gt-name">이름</label><input id="gt-name" class="inp" placeholder="예: 사업부 GitLab"></div></div>
+    <div class="split even"><div class="field"><label for="gt-url">주소</label><input id="gt-url" class="inp mono" placeholder="https://gitlab.example.com/group"></div><div class="field"><label for="gt-auth">인증 방식</label><select id="gt-auth" class="inp">${['그룹 액세스 토큰','개인 액세스 토큰','배포 키','GitHub App'].map(x=>`<option>${x}</option>`).join('')}</select></div></div>
+    <div class="field"><label for="gt-exp">토큰 만료일</label><input id="gt-exp" type="date" class="inp" style="max-width:220px"></div><p class="err" id="gt-err"></p><button class="btn pri" style="justify-self:start">추가하고 연결 테스트</button></form>`:'')
+  +`<section class="sec"><h2>연결</h2><div class="tbl"><table class="stack"><thead><tr><th>이름</th><th>주소</th><th>인증</th><th>토큰 만료</th><th>상태</th><th class="num">저장소</th><th></th></tr></thead><tbody>${S.gits.map(x=>{const n=apps.filter(a=>gitOf(a)===x).length;return `<tr><td><b>${esc(x.name)}</b><div class="sample">${x.kind}</div></td><td class="mono sample">${esc(x.url)}</td><td>${esc(x.auth)}</td><td>${x.exp||'-'}</td><td>${hb(x.status)}<div class="sample">확인 ${esc(x.check||'-')}</div></td><td class="num">${n}</td><td><button class="btn sm" data-act="gitTest" data-id="${x.id}">연결 테스트</button>${x.exp?`<button class="btn sm ghost" data-act="gitRenew" data-id="${x.id}">토큰 갱신</button>`:''}</td></tr>`}).join('')}</tbody></table></div></section>
+  <section class="sec"><h2>저장소 · 자동 배포</h2><div class="tbl"><table class="stack"><thead><tr><th>저장소</th><th>브랜치</th><th>연결 앱</th><th>마지막 커밋</th><th>앱 상태</th><th>푸시 시 자동 배포</th><th></th></tr></thead><tbody>${apps.map(a=>`<tr><td class="mono sample">${esc(a.repo||'-')}</td><td class="mono">${esc(a.branch||'main')}</td><td>${esc(a.name)}</td><td class="mono sample">${esc(a.commit||'-')}</td><td>${badge(a.status)}</td><td><input type="checkbox" class="sw" data-change="gitAuto" data-id="${a.id}" ${a.auto?'checked':''} ${P.webhook?'':'disabled'} aria-label="${esc(a.name)} 자동 배포"></td><td><button class="btn sm" data-act="redeploy" data-id="${a.id}">최신 커밋으로 배포</button></td></tr>`).join('')}</tbody></table></div></section>
+  <section class="card"><h3>Git 정책</h3>
+    ${chk('gitPol','webhook',P.webhook,'웹훅 자동 배포 허용','끄면 저장소마다 수동 배포만 됩니다')}
+    ${chk('gitPol','keepPrev',P.keepPrev,'빌드가 실패하면 이전 정상 버전 유지','',true)}
+    <div class="split even"><div class="field"><label for="gp-hosts">허용 호스트 (한 줄에 하나)</label><textarea id="gp-hosts" class="inp mono" data-change="gitHosts">${esc(P.hosts)}</textarea><span class="help">목록에 없는 주소의 저장소는 연결할 수 없습니다</span></div>
+    <div class="field"><label for="gp-branch">기본 배포 브랜치</label><input id="gp-branch" class="inp mono" value="${esc(P.branch)}" data-change="gitBranch"></div></div>
+  </section>`;
+};
+function gitOf(a){const host=(a.repo||'').replace(/^https?:\/\//,'');return S.gits.find(x=>host.startsWith(x.url.replace(/^https?:\/\//,'')))||null}
+const AUDIT_KINDS=['로그인','승인','반려','계정','배포','설정'];
+V['admin-audit']=()=>{
+  const g=adminOnly('활동 로그');if(g)return g;
+  const f=S.auditF||'';const list=S.audit.filter(e=>!f||e.kind===f||(f==='로그인'&&e.kind==='로그아웃'));
+  return ph('활동 로그','로그인, 승인·반려, 계정 변경, 배포, 관리 설정 변경을 시간순으로 남깁니다.')
+  +`<div class="chips">${['',...AUDIT_KINDS].map(k=>`<button data-act="auditF" data-v="${k}" class="${f===k?'on':''}">${k||'전체'}</button>`).join('')}</div>
+  <div class="tbl"><table class="stack"><thead><tr><th>시각</th><th>사용자</th><th>활동</th><th>대상</th></tr></thead><tbody>${list.slice(0,100).map(e=>`<tr><td class="mono">${esc(e.at)}</td><td>${esc(e.who)}</td><td><span class="tag">${esc(e.kind)}</span></td><td>${esc(e.target)}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">기록이 없습니다</td></tr>'}</tbody></table></div>`;
 };
 
 /* ---------- 모달 ---------- */
@@ -1191,6 +1365,10 @@ function renderModal(){
     const k=skillById(M.id);
     h=`<div class="row sb"><h2>${esc(k.name)}</h2><span class="tag ${k.kind==='가이드'?'pub':'int'}">${k.kind}</span></div><p class="mono sample">${esc(k.file)} · ${esc(k.size)} · ${esc(k.owner)}</p><pre class="code" style="max-height:50vh;overflow:auto">${esc(skillMd(k))}</pre>
     <div class="row" style="justify-content:flex-end">${canMake()&&k.on?`<button class="btn st" data-act="skUse" data-id="${k.id}">Studio 요청에 넣기</button>`:''}<button class="btn" data-act="close">닫기</button></div>`;
+  }else if(M.type==='dGroups'){
+    const d=dataById(M.id);const opts=[...new Set(['전사','경영기획팀',...S.accounts.map(a=>a.dept),'설비팀'])];
+    h=`<h2>${esc(d.name)} · 접근 그룹</h2><p class="muted">고른 부서의 사원만 Studio에서 이 데이터를 쓸 수 있습니다. 전사를 고르면 모든 사원이 씁니다.</p><div class="opts">${opts.map(g=>`<label><input type="checkbox" name="dg" value="${esc(g)}" ${(d.groups||[]).includes(g)?'checked':''}> ${esc(g)}</label>`).join('')}</div>
+    <div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">취소</button><button class="btn pri" data-act="dGroupsSave" data-id="${d.id}">저장</button></div>`;
   }else if(M.type==='reset'){
     h=`<h2>처음 상태로 되돌리기</h2><p>이 브라우저에 저장된 모든 변경을 지우고 예시 데이터로 돌아갑니다.</p><div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">취소</button><button class="btn danger" data-act="resetDo">되돌리기</button></div>`;
   }
@@ -1222,6 +1400,7 @@ function commit(){save();render()}
 
 /* ---------- 빌드 진행 ---------- */
 function startBuild(a,note){
+  if(U())audit('배포',`${a.name} v${a.ver}`);
   a.status='building';a.progress=0;a.buildNote=note||'';delete a.log;
   ensureTicker();
 }
@@ -1262,6 +1441,7 @@ function decide(id,ok,reason){
     if(r.kind==='앱 등록'&&a)a.status='rejected';
     if((r.kind==='데이터 사용'||r.kind==='데이터 연결')&&r.dataId){const d=dataById(r.dataId);if(d)d.access='요청 필요'}
   }
+  audit(r.status,`${r.kind} · ${a?a.name:(r.dataId&&dataById(r.dataId)?dataById(r.dataId).name:'')}`);
   notify(r.by,`${a?a.name:''} ${r.kind} 요청이 ${r.status}되었습니다`,ok?'admin-approved':'admin-rejected');
   toast(`${r.kind} 요청을 ${r.status}했습니다`);
 }
@@ -1269,7 +1449,8 @@ function decide(id,ok,reason){
 /* ---------- 이벤트 ---------- */
 const ACT={
   login:()=>{S.user=null;clearSession();render()},
-  umenu:()=>{MENU=!MENU;renderTop()},
+  umenu:()=>{MENU=!MENU;NMENU=false;renderTop()},
+  nmenu:()=>{NMENU=!NMENU;MENU=false;renderTop()},
   myAccount:()=>{MENU=false;renderTop();openModal({type:'account'})},
   goMembers:()=>{MENU=false;go('admin-members')},
   pwShow:el=>{const i=document.getElementById(el.dataset.for);if(!i)return;const show=i.type==='password';i.type=show?'text':'password';el.textContent=show?'숨기기':'보기'},
@@ -1277,13 +1458,24 @@ const ACT={
   demoToggle:(el,e)=>{e.preventDefault();AUTH.demoOpen=!AUTH.demoOpen;AUTH.email=$('#lg-email')?$('#lg-email').value:'';render()},
   demoFill:el=>{const a=acc(el.dataset.id);$('#lg-email').value=a.email;$('#lg-pw').value=a.status==='invited'?'':DEMO_PW;$('#lg-err').textContent=a.status==='invited'?'초대만 받고 비밀번호를 아직 정하지 않은 계정입니다. 관리자 계정으로 들어가 구성원 계정에서 초대 링크를 열어 보세요.':'';$('#lg-pw').focus()},
   toLogin:()=>{},
+  homePane:el=>{S.homePane=el.dataset.v;commit()},
+  auditF:el=>{S.auditF=el.dataset.v;commit()},
+  dTest:el=>{const d=dataById(el.dataset.id);if(d.health==='off'){toast('사용 중지된 연결입니다');return}d.health='check';render();setTimeout(()=>{const fix={molit:'응답 0.8초'};if(d.id==='kosis'){d.health='warn';d.note='응답 정상 · 인증키 만료 2026-12-05'}else{d.health='ok';d.note=fix[d.id]||'응답 정상'}d.lastCheck=stamp(new Date());commit();toast(`${d.name} 연결 테스트: ${HEALTH[d.health][0]}`)},700)},
+  dToggle:el=>{const d=dataById(el.dataset.id);d.health=d.health==='off'?'ok':'off';audit('설정',`데이터 관리 · ${d.name} ${d.health==='off'?'사용 중지':'다시 사용'}`);commit()},
+  dGroups:el=>openModal({type:'dGroups',id:el.dataset.id}),
+  dGroupsSave:el=>{const d=dataById(el.dataset.id);d.groups=[...document.querySelectorAll('input[name=dg]:checked')].map(x=>x.value);audit('설정',`데이터 관리 · ${d.name} 접근 그룹 변경`);closeModal();commit();toast('접근 그룹을 저장했습니다')},
+  llmAddOpen:()=>{S.llmAdd=!S.llmAdd;commit()},
+  llmTest:el=>{const m=S.llms.find(x=>x.id===el.dataset.id);if(!m.on){toast('사용을 켠 뒤 테스트하세요');return}m.status='check';render();setTimeout(()=>{m.status=m.name.startsWith('Llama')?'warn':'ok';if(!m.lat)m.lat=2.0;commit();toast(`${m.name}: ${m.status==='ok'?'응답 정상':'응답 지연 (GPU 사용률 높음)'}`)},800)},
+  gitAddOpen:()=>{S.gitAdd=!S.gitAdd;commit()},
+  gitTest:el=>{const x=S.gits.find(g=>g.id===el.dataset.id);x.status='check';render();setTimeout(()=>{x.status=x.exp&&x.exp<=addDays(ymd(new Date()),14)?'warn':'ok';x.check=stamp(new Date());commit();toast(`${x.name}: ${x.status==='ok'?'연결 정상':'연결 정상 · 토큰 만료 임박'}`)},700)},
+  gitRenew:el=>{const x=S.gits.find(g=>g.id===el.dataset.id);x.exp=addDays(ymd(new Date()),365);x.status='ok';audit('설정',`GitLab 관리 · ${x.name} 토큰 갱신`);commit();toast(`토큰 만료일을 ${x.exp}로 바꿨습니다`)},
   mInviteOpen:()=>{S.mInvite=!S.mInvite;commit()},
-  mLink:el=>{if(!gate('admin'))return;const L=newLink(el.dataset.k,el.dataset.id);save();openModal({type:'link',id:L.id})},
+  mLink:el=>{if(!gate('admin'))return;const L=newLink(el.dataset.k,el.dataset.id);audit('계정',`${acc(el.dataset.id).name} ${el.dataset.k==='invite'?'초대':'재설정'} 링크 발급`);save();openModal({type:'link',id:L.id})},
   mCancel:el=>{const a=acc(el.dataset.id);S.accounts=S.accounts.filter(x=>x!==a);S.links.forEach(l=>{if(l.uid===a.id)l.revoked=true});commit();toast(`${a.name}님 초대를 취소했습니다`)},
-  mDisable:el=>{const a=acc(el.dataset.id);if(a.role==='admin'&&S.accounts.filter(x=>x.role==='admin'&&x.status==='active').length<2){toast('마지막 관리자는 비활성화할 수 없습니다');return}a.status='disabled';S.links.forEach(l=>{if(l.uid===a.id)l.revoked=true});commit();toast(`${a.name}님 계정을 비활성화했습니다. 로그인과 열린 세션이 막힙니다`)},
-  mEnable:el=>{const a=acc(el.dataset.id);a.status=a.pw?'active':'invited';commit();toast(a.pw?`${a.name}님 계정을 다시 활성화했습니다`:'비밀번호를 정한 적이 없어 초대됨 상태로 돌렸습니다')},
+  mDisable:el=>{const a=acc(el.dataset.id);if(a.role==='admin'&&S.accounts.filter(x=>x.role==='admin'&&x.status==='active').length<2){toast('마지막 관리자는 비활성화할 수 없습니다');return}a.status='disabled';audit('계정',`${a.name} 비활성화`);S.links.forEach(l=>{if(l.uid===a.id)l.revoked=true});commit();toast(`${a.name}님 계정을 비활성화했습니다. 로그인과 열린 세션이 막힙니다`)},
+  mEnable:el=>{const a=acc(el.dataset.id);a.status=a.pw?'active':'invited';audit('계정',`${a.name} 다시 활성화`);commit();toast(a.pw?`${a.name}님 계정을 다시 활성화했습니다`:'비밀번호를 정한 적이 없어 초대됨 상태로 돌렸습니다')},
 
-  logout:()=>{S.user=null;MENU=false;AUTH={};clearSession();save();render();toast('로그아웃했습니다')},
+  logout:()=>{audit('로그아웃','-');S.user=null;MENU=false;AUTH={};clearSession();save();render();toast('로그아웃했습니다')},
   mode:el=>{S.mode=el.dataset.v;applyMode();commit()},
   goApprovals:()=>{if(gate('login'))go('admin-pending')},
   close:()=>closeModal(),
@@ -1297,8 +1489,8 @@ const ACT={
   delWish:el=>{S.wishes=S.wishes.filter(w=>w.id!==el.dataset.id);commit()},
   pinMemo:el=>{const m=S.memos.find(x=>x.id===el.dataset.id);m.pin=!m.pin;commit()},
   delMemo:el=>{S.memos=S.memos.filter(m=>m.id!==el.dataset.id);commit();toast('메모를 지웠습니다')},
-  readAll:()=>{S.notis.forEach(n=>{if(n.to===U().name)n.read=true});commit()},
-  noti:el=>{const n=S.notis.find(x=>x.id===el.dataset.id);n.read=true;save();go(n.go)},
+  readAll:()=>{S.notis.forEach(n=>{if(n.to===U().name)n.read=true});save();renderTop()},
+  noti:el=>{const n=S.notis.find(x=>x.id===el.dataset.id);n.read=true;NMENU=false;save();renderTop();go(n.go)},
   redeploy:el=>{if(!gate('make'))return;const a=app(el.dataset.id);a.ver+=1;startBuild(a,a.status==='failed'?'의존성 수정 후 재배포':'최신 소스 반영');commit();toast(`${a.name} v${a.ver} 빌드를 시작했습니다`)},
   studioPreset:el=>{if(!gate('make'))return;const p=PRESETS[el.dataset.v];Object.assign(S.st,{prompt:p.prompt,skills:p.skills.slice(),data:p.data.filter(id=>{const d=dataById(id);return d&&d.access==='허용'}),out:el.dataset.v,pick:false});S.cur=null;save();go('studio-new')},
   studioPick:el=>{S.studioView=el.dataset.id;commit()},
@@ -1349,17 +1541,34 @@ const ACT={
   delApp:el=>openModal({type:'delApp',id:el.dataset.id}),
   delAppDo:el=>{const id=el.dataset.id;const a=app(id);S.apps=S.apps.filter(x=>x.id!==id);S.urls=S.urls.filter(u=>u.appId!==id);delete S.perm[id];delete S.env[id];closeModal();commit();toast(`${a.name}을 삭제했습니다`)},
   reset:()=>openModal({type:'reset'}),
-  resetDo:()=>{const u=S.user,m=S.mode;S=seed();S.user=S.accounts.some(a=>a.id===u&&a.status==='active')?u:null;S.mode=m;closeModal();commit();toast('예시 데이터로 되돌렸습니다')},
+  resetDo:()=>{const u=S.user,m=S.mode;S=enrich(seed());S.user=S.accounts.some(a=>a.id===u&&a.status==='active')?u:null;S.mode=m;closeModal();commit();toast('예시 데이터로 되돌렸습니다')},
   delMore:el=>{S.moreItems=S.moreItems.filter(m=>m.id!==el.dataset.id);commit()}
 };
 document.addEventListener('click',e=>{
-  if(MENU&&!e.target.closest('.umenu')){MENU=false;renderTop()}
+  if((MENU||NMENU)&&!e.target.closest('.umenu')){MENU=false;NMENU=false;renderTop()}
   const el=e.target.closest('[data-act]');if(!el)return;
   const fn=ACT[el.dataset.act];if(!fn)return;
   if(el.tagName==='BUTTON'||el.tagName==='SUMMARY'||el.dataset.act==='scrim'||el.dataset.act==='close'&&el.tagName==='A')fn(el,e);
 });
 
 const FORM={
+  llmAdd:()=>{
+    const name=$('#lm-name').value.trim(),ep=$('#lm-ep').value.trim();
+    if(!name)return $('#lm-err').textContent='모델 이름을 적어 주세요';
+    if(!/^https?:\/\/\S+$/.test(ep))return $('#lm-err').textContent='http:// 또는 https://로 시작하는 주소를 적어 주세요';
+    const m={id:uid('m'),name,note:$('#lm-note').value.trim()||'추가 모델',engine:$('#lm-engine').value,endpoint:ep,hw:'-',ctx:$('#lm-ctx').value,status:'check',on:true,def:false,lat:0,tok:0,req:0,err:0};
+    S.llms.push(m);S.llmAdd=false;audit('설정',`LLM 관리 · ${name} 추가`);commit();
+    setTimeout(()=>{m.status='ok';m.lat=2.0;commit();toast(`${name} 연결 테스트: 응답 정상`)},900);
+  },
+  gitAdd:()=>{
+    const name=$('#gt-name').value.trim(),url=$('#gt-url').value.trim().replace(/\/+$/,'');
+    if(!name)return $('#gt-err').textContent='이름을 적어 주세요';
+    if(!/^https:\/\/\S+$/.test(url))return $('#gt-err').textContent='https://로 시작하는 주소를 적어 주세요';
+    const x={id:uid('g'),kind:$('#gt-kind').value,name,url,auth:$('#gt-auth').value,exp:$('#gt-exp').value,status:'check',check:'-'};
+    S.gits.push(x);const host=url.replace(/^https:\/\//,'');if(!S.gitPol.hosts.split('\n').includes(host))S.gitPol.hosts+='\n'+host;
+    S.gitAdd=false;audit('설정',`GitLab 관리 · ${name} 연결 추가`);commit();
+    setTimeout(()=>{x.status='ok';x.check=stamp(new Date());commit();toast(`${name} 연결 정상`)},900);
+  },
   login:()=>{
     const email=$('#lg-email').value.trim().toLowerCase(),pw=$('#lg-pw').value,keep=$('#lg-keep').checked;
     AUTH.email=email;AUTH.keep=keep;
@@ -1403,7 +1612,7 @@ const FORM={
     if(!new RegExp('^[^@\\s]+@'+S.org.domain.replace(/\./g,'\\.')+'$').test(email))return err.textContent=`@${S.org.domain} 이메일만 초대할 수 있습니다`;
     if(S.accounts.some(a=>a.email.toLowerCase()===email))return err.textContent='이미 등록된 이메일입니다';
     const a={id:uid('u'),name,email,dept:dept||'미지정',role,status:'invited',pw:null,lastLogin:'',created:ymd(new Date())};
-    S.accounts.push(a);const L=newLink('invite',a.id);S.mInvite=false;commit();openModal({type:'link',id:L.id});
+    S.accounts.push(a);const L=newLink('invite',a.id);audit('계정',`${name} 초대`);S.mInvite=false;commit();openModal({type:'link',id:L.id});
   },
   org:()=>{
     const name=$('#og-name').value.trim(),domain=$('#og-domain').value.trim().toLowerCase().replace(/^@/,'');
@@ -1418,7 +1627,7 @@ const FORM={
     const base=NF.src==='ZIP'?NF.file.name.replace(/\.zip$/i,''):NF.repo.trim().replace(/\/+$/,'').split('/').pop().replace(/\.git$/,'');
     let slug=base.toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/^-+|-+$/g,'')||('report-'+Math.random().toString(36).slice(2,6));
     if(S.apps.some(a=>a.slug===slug))slug+='-'+Math.random().toString(36).slice(2,5);
-    const a={id:uid('a'),name:NF.title.trim(),slug,cat:NF.cat||'현황 보고',src:NF.src,llm:'외부 LLM',status:'building',vis:'Private',owner:U().name,dept:U().dept,views:0,updated:ymd(new Date()),ver:1,data:[],desc:NF.desc.trim()||'설명 없음',branch:NF.branch||'main',file:NF.file?NF.file.name:''};
+    const a={id:uid('a'),name:NF.title.trim(),slug,cat:NF.cat||'현황 보고',src:NF.src,llm:'외부 LLM',status:'building',vis:'Private',owner:U().name,dept:U().dept,views:0,updated:ymd(new Date()),ver:1,data:[],desc:NF.desc.trim()||'설명 없음',branch:NF.branch||'main',file:NF.file?NF.file.name:'',repo:NF.src==='ZIP'?'':NF.repo.trim().replace(/\/+$/,''),commit:NF.src==='ZIP'?'':'최신 커밋',auto:false};
     const env=NF.env.filter(e=>e.k.trim()).map(e=>({k:e.k.trim().toUpperCase(),v:e.v,secret:true}));
     if(env.length)S.env[a.id]=env;
     S.apps.unshift(a);startBuild(a,'첫 등록');NF={title:'',desc:'',cat:'',src:'ZIP',file:null,repo:'',branch:'main',env:[],envOpen:false,err:''};
@@ -1478,7 +1687,18 @@ document.addEventListener('change',e=>{
   const el=e.target;const k=el.dataset.change;
   if(k==='stage'){S.wishes.find(w=>w.id===el.dataset.id).stage=el.value;save()}
   else if(k==='appsel'){S.appSel=el.value;commit()}
-  else if(k==='accRole'){const a=acc(el.dataset.id);if(a.role==='admin'&&el.value!=='admin'&&S.accounts.filter(x=>x.role==='admin'&&x.status==='active').length<2){el.value='admin';toast('마지막 관리자의 역할은 바꿀 수 없습니다');return}a.role=el.value;commit();toast(`${a.name}님 역할을 ${ROLE_LABEL[a.role]}로 바꿨습니다`)}
+  else if(k==='dpol'){S.dataPol[el.dataset.k]=el.checked;audit('설정','데이터 정책 변경');commit()}
+  else if(k==='dpolCache'){S.dataPol.cache=el.value;audit('설정',`데이터 캐시 ${el.value}`);commit()}
+  else if(k==='llmOn'){const m=S.llms.find(x=>x.id===el.dataset.id);if(!el.checked&&m.def&&S.llms.filter(x=>x.on).length<2){el.checked=true;toast('켜진 모델이 하나는 있어야 합니다');return}m.on=el.checked;m.status=m.on?(m.status==='off'?'ok':m.status):'off';if(!m.on&&m.def){m.def=false;const n=S.llms.find(x=>x.on);if(n)n.def=true}audit('설정',`LLM 관리 · ${m.name} ${m.on?'사용':'사용 중지'}`);commit()}
+  else if(k==='llmDef'){S.llms.forEach(m=>m.def=m.id===el.value);const m=S.llms.find(x=>x.def);S.st.model=m.name;audit('설정',`LLM 관리 · 기본 모델 ${m.name}`);commit();toast(`Studio 기본 모델을 ${m.name}로 바꿨습니다`)}
+  else if(k==='llmLimit'){const v=Math.max(1,parseInt(el.value)||1);S.llmDept[+el.dataset.i][2]=v;audit('설정',`LLM 관리 · ${S.llmDept[+el.dataset.i][0]} 월 한도 ${v}M`);commit()}
+  else if(k==='llmPol'){S.llmPol[el.dataset.k]=el.checked;audit('설정','LLM 프롬프트 정책 변경');commit()}
+  else if(k==='llmPolSel'){S.llmPol[el.dataset.k]=el.value;audit('설정','LLM 프롬프트 정책 변경');commit()}
+  else if(k==='gitAuto'){const a=app(el.dataset.id);a.auto=el.checked;audit('설정',`GitLab 관리 · ${a.name} 자동 배포 ${a.auto?'켬':'끔'}`);commit()}
+  else if(k==='gitPol'){S.gitPol[el.dataset.k]=el.checked;audit('설정','Git 정책 변경');commit()}
+  else if(k==='gitHosts'){S.gitPol.hosts=el.value;save();toast('허용 호스트를 저장했습니다')}
+  else if(k==='gitBranch'){S.gitPol.branch=el.value.trim()||'main';save();toast('기본 브랜치를 저장했습니다')}
+  else if(k==='accRole'){const a=acc(el.dataset.id);if(a.role==='admin'&&el.value!=='admin'&&S.accounts.filter(x=>x.role==='admin'&&x.status==='active').length<2){el.value='admin';toast('마지막 관리자의 역할은 바꿀 수 없습니다');return}a.role=el.value;audit('계정',`${a.name} 역할 ${ROLE_LABEL[a.role]}`);commit();toast(`${a.name}님 역할을 ${ROLE_LABEL[a.role]}로 바꿨습니다`)}
   else if(k==='role'){S.perm[S.appSel][+el.dataset.i].role=el.value;save();toast('역할을 바꿨습니다')}
   else if(k==='stModel'){S.st.model=el.value;commit()}
   else if(k==='stOut'){S.st.out=el.value;commit()}
