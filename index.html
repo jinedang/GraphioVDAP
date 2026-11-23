@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Graphio VDAP 웹앱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* VOICE: 실제 출시된 업무용 제품 화면. 차분하고 조밀한 작업 도구.
+   IDEA: VDAP 사용자 콘솔. 상단 6개 탭, 왼쪽 세부 메뉴, 오른쪽 작업 영역.
+   PICTURE: 작업 화면 자체(앱 카드, 승인함, 생성된 주간보고, 막대 차트).
+   COLOUR/TYPE: 기존 VDAP 프로토타입 토큰(파랑 #1F5FD1, Studio 초록, 외부 데이터 호박색), IBM Plex Sans KR.
+   LAYOUT: 고정 헤더 + 232px 사이드바 + 본문. 860px 아래에서는 사이드바가 가로 칩 줄로 바뀜. */
+:root{
+  color-scheme:light;
+  --bg:#F4F5F7;--surface:#FFFFFF;--ink:#16181D;--ink-2:#3A424C;--muted:#58616C;
+  --line:#DDE1E7;--line-strong:#B8BEC7;
+  --accent:#1F5FD1;--accent-ink:#174AA6;--accent-soft:#E8EFFB;--on-accent:#FFFFFF;
+  --ok-bg:#E3F3EA;--ok:#176B40;--idle-bg:#ECEEF1;--idle:#3A424C;
+  --busy-bg:#FBF0DC;--busy:#7A4A00;--bad-bg:#FBE9E7;--bad:#A1241C;
+  --studio:#1F7A4D;--studio-soft:#E2F3EA;--studio-line:#58B487;
+  --ext:#8A5300;--ext-soft:#FCF1DE;--ext-line:#E0A54A;
+  --shadow:0 8px 24px rgba(16,19,24,.12);
+  --sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --hdr:61px;
+}
+:root[data-mode=dark]{
+  color-scheme:dark;
+  --bg:#101318;--surface:#191D24;--ink:#E6E9EE;--ink-2:#C3C9D2;--muted:#9AA3AF;
+  --line:#2C333D;--line-strong:#46505C;
+  --accent:#5B8FEA;--accent-ink:#8FB3F2;--accent-soft:#1C2A42;--on-accent:#0E1420;
+  --ok-bg:#15301F;--ok:#7FD3A1;--idle-bg:#232932;--idle:#C3C9D2;
+  --busy-bg:#33270F;--busy:#F0C36D;--bad-bg:#3A1A18;--bad:#F09A92;
+  --studio:#6FD09D;--studio-soft:#142A1E;--studio-line:#3E8C64;
+  --ext:#F0C36D;--ext-soft:#2E2410;--ext-line:#8A6420;
+  --shadow:0 8px 24px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box;min-width:0}
+html{scroll-padding-top:80px}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--sans);overflow-x:clip}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--accent-ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-size:.9em}
+.muted{color:var(--muted)}
+h1{font-size:24px;line-height:1.25;margin:0;font-weight:700;text-wrap:balance}
+h2{font-size:16px;margin:0;font-weight:700}
+h3{font-size:15px;margin:0;font-weight:600}
+p{margin:0}
+
+/* 헤더 */
+.top{position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;gap:8px;padding:8px max(16px,2vw);min-height:60px}
+.logo{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:18px;letter-spacing:-.01em;text-decoration:none;color:var(--ink);white-space:nowrap;padding:6px 10px 6px 0;margin-right:6px}
+.logo img{width:30px;height:auto;display:block}
+.tabs{display:flex;gap:2px;overflow-x:auto;flex:1 1 auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs a{display:inline-flex;align-items:center;gap:6px;padding:0 14px;min-height:44px;border-radius:8px;color:var(--ink-2);text-decoration:none;white-space:nowrap;flex:none}
+.tabs a:hover{background:var(--bg)}
+.tabs a.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.tabs a small{font-size:11px;font-weight:500;color:var(--muted)}
+.tabs a.on small{color:var(--accent-ink)}
+.right{display:flex;gap:8px;align-items:center;margin-left:auto;flex:none}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:0 12px;min-height:40px;color:var(--ink-2)}
+.seg button.on{background:var(--ink);color:var(--surface);font-weight:600}
+.who{display:inline-flex;flex-direction:column;line-height:1.2;text-align:right;font-weight:600;font-size:14px}
+.who small{font-weight:500;font-size:12px;color:var(--muted)}
+@media(max-width:860px){.top-in{flex-wrap:wrap}.tabs{order:3;flex-basis:100%}}
+
+/* 공통 버튼 */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:0 14px;min-height:40px;font-weight:600;color:var(--ink);white-space:nowrap;text-decoration:none}
+.btn:hover{border-color:var(--ink-2)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.st{background:var(--studio);border-color:var(--studio);color:var(--surface)}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.ghost{border-color:transparent;background:none}
+.btn.sm{min-height:32px;padding:0 10px;font-size:13px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.cnt{display:inline-block;min-width:20px;padding:0 6px;border-radius:999px;background:var(--bad);color:#fff;font-size:11.5px;font-weight:700;line-height:18px;text-align:center}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row.sb{justify-content:space-between}
+
+/* 셸 */
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);max-width:1480px;margin:0 auto}
+.side{position:sticky;top:var(--hdr);align-self:start;max-height:calc(100vh - var(--hdr));overflow:auto;padding:18px 12px 40px;border-right:1px solid var(--line);display:grid;gap:2px}
+.side h4{margin:14px 12px 4px;font-size:12px;font-weight:600;color:var(--muted)}
+.side h4:first-child{margin-top:0}
+.side a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 12px;min-height:42px;border-radius:8px;color:var(--ink-2);text-decoration:none}
+.side a:hover{background:var(--surface)}
+.side a.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.side.studio a.on{background:var(--studio-soft);color:var(--studio)}
+.side .n{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.side .n.hot{background:var(--bad);color:#fff;border-radius:999px;padding:0 7px;font-weight:700}
+main{padding:24px clamp(16px,3vw,36px) 72px;display:grid;gap:22px;align-content:start}
+@media(max-width:860px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line);display:flex;overflow-x:auto;padding:8px 12px;gap:4px;background:var(--surface)}
+  .side h4{display:none}.side a{flex:none;min-height:38px}
+}
+.ph{display:flex;gap:12px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
+.ph p{margin-top:4px;color:var(--muted)}
+.sec{display:grid;gap:12px;align-content:start}
+.sec-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:10px;align-content:start}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr))}
+.grid.sm{grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr))}
+.split{display:grid;gap:18px;grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+.split.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media(max-width:1000px){.split,.split.even{grid-template-columns:minmax(0,1fr)}}
+.note{border-left:3px solid var(--accent);background:var(--accent-soft);color:var(--ink);padding:10px 14px;border-radius:0 8px 8px 0}
+.note.st{border-color:var(--studio);background:var(--studio-soft)}
+.note.ext{border-color:var(--ext-line);background:var(--ext-soft)}
+.note.warn{border-color:var(--bad);background:var(--bad-bg)}
+.empty{border:1.5px dashed var(--line-strong);border-radius:12px;padding:24px;text-align:center;color:var(--muted);display:grid;gap:10px;justify-items:center}
+.sample{font-size:12.5px;color:var(--muted)}
+
+/* 배지·태그 */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.b-ok{background:var(--ok-bg);color:var(--ok)}.b-idle{background:var(--idle-bg);color:var(--idle)}
+.b-busy{background:var(--busy-bg);color:var(--busy)}.b-bad{background:var(--bad-bg);color:var(--bad)}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:6px;background:var(--bg);border:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
+.tag.int{background:var(--studio-soft);border-color:var(--studio-line);color:var(--studio);font-weight:600}
+.tag.ext{background:var(--ext-soft);border-color:var(--ext-line);color:var(--ext);font-weight:600}
+.tag.pub{border-color:var(--accent);color:var(--accent-ink)}
+
+/* 앱 카드 */
+.appc .top2{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.appc .name{font-weight:600;font-size:15.5px}
+.url{font-family:var(--mono);font-size:12.5px;color:var(--muted);word-break:break-all}
+.meta{display:flex;gap:6px;flex-wrap:wrap}
+
+/* 리스트 */
+.list{background:var(--surface);border:1px solid var(--line);border-radius:12px;display:grid}
+.li{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.li:last-child{border-bottom:0}
+.li .main{display:grid;gap:2px;flex:1 1 240px}
+.li .main b{font-weight:600}
+
+/* 표 */
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12.5px;color:var(--muted);font-weight:600;background:var(--bg);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td .btn+.btn{margin-left:4px}
+
+/* 입력 */
+.field{display:grid;gap:6px}
+.field>label,.field>.lb{font-weight:600;font-size:13.5px}
+.help{font-size:13px;color:var(--muted)}
+.err{font-size:13px;color:var(--bad)}
+.inp{border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:8px 12px;min-height:44px;width:100%;font-size:16px}
+textarea.inp{min-height:92px;resize:vertical;line-height:1.5}
+select.inp{padding-right:28px}
+.opts{display:flex;gap:8px;flex-wrap:wrap}
+.opts label{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line-strong);border-radius:8px;padding:0 12px;min-height:44px;background:var(--surface);cursor:pointer}
+.opts label:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.opts label.dis{opacity:.5;cursor:not-allowed}
+.form{display:grid;gap:16px;max-width:760px}
+.inline{display:grid;gap:8px;grid-template-columns:minmax(0,1fr) auto auto}
+@media(max-width:600px){.inline{grid-template-columns:minmax(0,1fr)}}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;padding:0 12px;min-height:36px;color:var(--ink-2)}
+.chips button.on{background:var(--ink);border-color:var(--ink);color:var(--surface);font-weight:600}
+
+/* 타일·차트 */
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:2px}
+.tile .v{font-size:clamp(20px,2.4vw,26px);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tile .k{font-size:13px;color:var(--muted)}
+.tile .d{font-size:12.5px;font-weight:600}
+.up{color:var(--ok)}.down{color:var(--bad)}
+.hbars{display:grid;gap:8px}
+.hbar{display:grid;grid-template-columns:88px minmax(0,1fr) 70px;gap:10px;align-items:center;font-size:13.5px}
+.hbar .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.track{height:12px;background:var(--idle-bg);border-radius:999px;overflow:hidden}
+.track i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.track.st i{background:var(--studio)}
+.vbars{display:flex;align-items:flex-end;gap:6px;padding:12px 10px 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.vbars .col{flex:1;display:grid;justify-items:center;gap:6px}
+.vbars .pair{display:flex;gap:2px;align-items:flex-end;height:150px}
+.vbars .pair i{display:block;width:12px;border-radius:3px 3px 0 0}
+.vbars i.a{background:var(--accent)}.vbars i.t{background:var(--line-strong)}
+.vbars span{font-size:12px;color:var(--muted);white-space:nowrap}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.meter{height:8px;background:var(--idle-bg);border-radius:999px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent);transition:width .5s ease}
+.code{font-family:var(--mono);font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;white-space:pre-wrap;word-break:break-word;margin:0}
+
+/* 만들고 싶은 앱 */
+.wcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px;align-content:start}
+.wcard.int{border-top:3px solid var(--studio)}
+.wcard.ext{border-top:3px solid var(--ext-line)}
+.wcard b{font-size:15px}
+.stage{border:1px solid var(--line-strong);background:var(--surface);border-radius:6px;padding:2px 6px;min-height:32px;font-size:13px}
+
+/* 메모 */
+.memo{display:grid;gap:10px}
+.mitem{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:6px}
+.mitem.pin{border-color:var(--ext-line);background:var(--ext-soft)}
+.mitem p{white-space:pre-wrap;word-break:break-word}
+
+/* Studio 결과 문서 */
+.doc{background:var(--surface);border:1px solid var(--studio-line);border-radius:12px;padding:clamp(16px,3vw,28px);display:grid;gap:18px}
+.doc header{display:grid;gap:4px;border-bottom:1px solid var(--line);padding-bottom:14px}
+.doc header .tag{justify-self:start}
+.doc h2{font-size:20px}
+.doc h3{font-size:15px;color:var(--studio)}
+.doc ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.doc footer{border-top:1px solid var(--line);padding-top:12px;font-size:13px;color:var(--muted)}
+.steps{display:flex;gap:6px;flex-wrap:wrap}
+.steps span{font-size:12.5px;padding:2px 10px;border-radius:999px;background:var(--idle-bg);color:var(--muted)}
+.steps span.done{background:var(--studio-soft);color:var(--studio);font-weight:600}
+.steps span.run{background:var(--busy-bg);color:var(--busy);font-weight:600}
+
+/* 모달·토스트 */
+.scrim{position:fixed;inset:0;background:rgba(10,12,16,.5);z-index:50;display:grid;place-items:center;padding:16px}
+.modal{background:var(--surface);border-radius:14px;box-shadow:var(--shadow);width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px;display:grid;gap:14px}
+.modal.wide{width:min(720px,100%)}
+.acct{display:grid;gap:8px}
+.acct button{display:grid;gap:2px;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:12px 14px}
+.acct button:hover{border-color:var(--accent)}
+.acct button span{font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:14px;z-index:60;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
+.foot{font-size:12.5px;color:var(--muted);padding:0 clamp(16px,3vw,36px) 28px}
+@media(max-width:600px){
+  table{font-size:13px}
+  .stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}
+  .stack td{display:flow-root;border:0;padding:3px 14px;padding-inline-start:calc(14px + 7.5em);text-align:start}
+  .stack td::before{content:attr(data-l);float:inline-start;width:7em;margin-inline-start:-7.5em;color:var(--muted);font-size:12px}
+  .stack td:empty{display:none}
+  .hbar{grid-template-columns:64px minmax(0,1fr) 58px}
+  .vbars .pair i{width:7px}
+  .right .who{display:none}
+}
+.side a.ind{padding-left:30px;font-size:14px;min-height:38px}
+.lr-wrap{max-width:820px;width:100%;margin:0 auto;display:grid;gap:18px}
+.srcseg{display:flex;gap:8px;flex-wrap:wrap}
+.srcseg button{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;min-height:44px;padding:0 16px;font-weight:600;color:var(--ink)}
+.srcseg button.on{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.dropz{border:1.5px dashed var(--line-strong);border-radius:10px;padding:34px 16px;text-align:center;display:grid;gap:6px;justify-items:center;cursor:pointer;background:var(--surface)}
+.dropz svg{width:38px;height:38px;color:var(--ink-2)}
+.dropz:hover,.dropz.over{border-color:var(--accent);background:var(--accent-soft)}
+.studio-grid{display:grid;gap:18px;grid-template-columns:minmax(0,1fr) 300px;align-items:start}
+@media(max-width:1100px){.studio-grid{grid-template-columns:minmax(0,1fr)}}
+.composer{border:1.5px solid var(--studio-line);background:var(--surface);border-radius:14px;padding:16px 18px;display:grid;gap:12px}
+.composer:focus-within{box-shadow:0 0 0 4px var(--studio-soft)}
+.cmp-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cmp-top .sel{width:auto;min-height:38px;font-size:14px;padding:4px 28px 4px 10px}
+.llm{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--studio);background:var(--studio-soft);border-radius:999px;padding:4px 12px}
+.llm::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--studio)}
+.prompt{border:0;background:transparent;width:100%;min-height:104px;font-size:17px;line-height:1.55;resize:vertical;padding:4px 2px;color:var(--ink)}
+.prompt:focus-visible{outline:none}
+.cmp-row{display:grid;grid-template-columns:52px minmax(0,1fr);gap:8px;align-items:start}
+.cmp-row .lb{font-size:13px;font-weight:600;color:var(--muted);padding-top:7px}
+@media(max-width:600px){.cmp-row{grid-template-columns:minmax(0,1fr)}}
+.sk-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--studio-line);background:var(--studio-soft);color:var(--studio);border-radius:999px;padding:0 2px 0 10px;min-height:32px;font-size:13px;font-weight:600;font-family:var(--mono)}
+.sk-chip em{font-style:normal;font-family:var(--sans);font-size:11px;opacity:.8}
+.sk-chip.guide{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.sk-chip button{border:0;background:none;color:inherit;width:28px;height:28px;border-radius:50%;font-size:16px;line-height:1}
+.sk-chip button:hover{background:rgba(0,0,0,.08)}
+.chips button[disabled]{opacity:.45;cursor:not-allowed}
+.picker{border:1px solid var(--line);border-radius:10px;display:grid;max-height:300px;overflow:auto;margin-left:60px}
+@media(max-width:600px){.picker{margin-left:0}}
+.picker label{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;align-items:center}
+.picker label:last-child{border-bottom:0}
+.picker label>span{grid-column:2;font-size:13px;color:var(--muted)}
+.picker .mono{font-weight:400;color:var(--muted);font-size:12px}
+.kv{display:grid;grid-template-columns:44px minmax(0,1fr);gap:6px 10px;margin:0;font-size:14px}.kv dt{color:var(--muted)}.kv dd{margin:0}
+.turns{display:grid;gap:6px}
+.turn{font-size:14px;background:var(--studio-soft);border-radius:8px;padding:8px 12px}
+.turn b{color:var(--studio);margin-right:6px}
+.rtabs{display:flex;gap:2px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.rtabs button{border:0;background:none;padding:0 14px;min-height:42px;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--ink-2)}
+.rtabs button.on{color:var(--studio);border-bottom-color:var(--studio);font-weight:600}
+.checks{margin:4px 0 0;padding-left:18px;font-size:13.5px;color:var(--ink-2)}
+.sw{width:18px;height:18px;accent-color:var(--studio)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top" id="top"></header>
+<div class="shell"><nav class="side" id="side" aria-label="세부 메뉴"></nav><main id="main"></main></div>
+<p class="foot">Graphio VDAP 웹앱 데모 · 화면의 앱·데이터·사람 이름은 모두 예시이며, 입력 내용은 이 브라우저에만 저장됩니다. 앱 카탈로그 구성은 LinkaiReport 화면(대시보드, 보고서, 내 보고서, 공유받은 보고서, 보고서 개발 가이드, 새 보고서 만들기)을 기준으로 옮겼고, Studio의 사내 LLM 생성은 연결 전이라 데모 생성기로 동작합니다.</p>
+<div id="modal"></div>
+<div id="toast" class="toast" role="status" hidden></div>
+<script>
+new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true});
+</script>
+<script>
+{
+/* ---------- 기본 도구 ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const stamp=d=>`${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const addDays=(s,n)=>{const d=new Date(s+'T00:00:00');d.setDate(d.getDate()+n);return ymd(d)};
+const uid=p=>p+Math.random().toString(36).slice(2,8);
+const DOMAIN='vdap.example.local';
+const LINKAI='https://devreport.linkaidata.com/';
+const GUIDE='https://devreport.linkaidata.com/docs/report-dev-guide.html';
+const GITGUIDE='https://devreport.linkaidata.com/docs/git-token-guide.html';
+const KEY='graphio-vdap-webapp-v1';
+
+const USERS={
+  maker:{name:'김현업',role:'메이커',dept:'영업기획팀',desc:'앱을 만들고 등록·공유를 요청합니다'},
+  viewer:{name:'박이용',role:'이용자',dept:'생산팀',desc:'공유받은 앱을 열람하고 메모합니다'},
+  admin:{name:'최관리',role:'관리자',dept:'IT팀',desc:'승인·반려, URL과 권한을 관리합니다'}
+};
+const STATUS={live:['서비스 중','b-ok'],building:['빌드 중','b-busy'],failed:['빌드 실패','b-bad'],pending:['승인 대기','b-busy'],rejected:['반려됨','b-bad'],sleep:['절전','b-idle']};
+const CATS=['현황 보고','데이터 탐색','정보 안내'];
+const BUILD_STEPS=['소스 검증','의존성 설치','빌드','게시'];
+const DEPTS=['영업기획팀','사업성장실','IT팀'];
+
+/* ---------- 예시 데이터 ---------- */
+function seed(){
+  return {
+    v:2,user:null,mode:null,appSel:'a1',catQ:'',catCat:'',catStatus:'',studioView:null,cur:null,resTab:'preview',
+    st:{prompt:'',model:'Qwen3-32B',skills:['k-guide','k-data'],data:['sales','jira','wiki'],out:'auto',dept:'영업기획팀',pick:false},
+    apps:[
+      {id:'a1',name:'월별 매출 대시보드',slug:'sales-dash',cat:'현황 보고',src:'GitHub',llm:'Claude',status:'live',vis:'Private',owner:'김현업',dept:'영업기획팀',views:132,updated:'2026-11-15',ver:3,data:['sales'],desc:'지역·제품별 월 매출과 목표 대비 달성률'},
+      {id:'a2',name:'설비 점검 현황',slug:'facility-check',cat:'현황 보고',src:'ZIP',llm:'ChatGPT',status:'pending',vis:'Private',owner:'김현업',dept:'설비팀',views:0,updated:'2026-11-16',ver:1,data:['facility'],desc:'라인별 점검 결과와 이상 항목'},
+      {id:'a3',name:'VOC 주간 리포트',slug:'voc-weekly',cat:'정보 안내',src:'ZIP',llm:'Claude',status:'live',vis:'Public',owner:'김현업',dept:'고객지원팀',views:61,updated:'2026-11-12',ver:2,data:['csv'],desc:'주간 고객 의견 분류와 대응 현황'},
+      {id:'a4',name:'교육 신청 안내',slug:'edu-guide',cat:'정보 안내',src:'GitHub',llm:'Cursor',status:'failed',vis:'Private',owner:'김현업',dept:'인사팀',views:0,updated:'2026-11-17',ver:1,data:['hr'],desc:'사내 교육 과정 안내와 신청 양식',log:"> next build\nModule not found: Can't resolve 'chart.js'\n  ./components/Chart.tsx:3:1\nBuild failed with exit code 1"},
+      {id:'a5',name:'전기차 충전소 현황',slug:'ev-charger',cat:'데이터 탐색',src:'GitHub',llm:'Claude',status:'live',vis:'Public',owner:'오데이터',dept:'데이터사업팀',views:418,updated:'2026-11-14',ver:5,data:['ev'],desc:'지역별 충전소 위치 지도와 급속·완속 비율'},
+      {id:'a6',name:'현장 날씨·작업 일정',slug:'weather-site',cat:'데이터 탐색',src:'ZIP',llm:'ChatGPT',status:'live',vis:'Private',owner:'이개발',dept:'IT팀',views:57,updated:'2026-11-10',ver:2,data:['kma'],desc:'현장별 단기예보와 작업 가능 시간대'},
+      {id:'a7',name:'프로젝트 비용 현황',slug:'pj-cost',cat:'현황 보고',src:'GitHub',llm:'Claude',status:'live',vis:'Private',owner:'한재무',dept:'재무팀',views:88,updated:'2026-11-14',ver:4,data:['fin'],desc:'프로젝트별 예산 대비 집행 현황'},
+      {id:'a8',name:'아파트 실거래가 탐색',slug:'realty',cat:'데이터 탐색',src:'ZIP',llm:'ChatGPT',status:'sleep',vis:'Public',owner:'오데이터',dept:'데이터사업팀',views:203,updated:'2026-10-28',ver:3,data:['molit'],desc:'시군구별 매매 실거래가 추이 비교'},
+      {id:'a9',name:'사내 FAQ 안내',slug:'faq',cat:'정보 안내',src:'ZIP',llm:'Claude',status:'live',vis:'Private',owner:'최관리',dept:'IT팀',views:510,updated:'2026-10-30',ver:6,data:[],desc:'계정·장비·보안 문의 FAQ'},
+      {id:'a10',name:'지역별 인구 통계 비교',slug:'kosis-pop',cat:'데이터 탐색',src:'GitHub',llm:'Cursor',status:'live',vis:'Public',owner:'오데이터',dept:'데이터사업팀',views:144,updated:'2026-11-05',ver:2,data:['kosis'],desc:'시도별 인구·연령 구조 비교 차트'}
+    ],
+    approvals:[
+      {id:'r1',kind:'앱 등록',appId:'a2',by:'김현업',reason:'설비팀 외 생산팀도 점검 결과를 확인해야 함',date:'2026-11-16',status:'대기'},
+      {id:'r2',kind:'데이터 사용',appId:'a4',dataId:'hr',by:'김현업',reason:'교육 신청 시 소속 부서 자동 입력',date:'2026-11-17',status:'대기'},
+      {id:'r3',kind:'Public URL 발급',appId:'a1',by:'김현업',reason:'협력사 담당자에게 2주간 공유',days:14,date:'2026-11-18',status:'대기'},
+      {id:'r4',kind:'Public URL 발급',appId:'a6',by:'이개발',reason:'현장 협력사와 작업 일정 공유',days:30,date:'2026-11-19',status:'대기'},
+      {id:'r5',kind:'전사 공개',appId:'a3',by:'김현업',reason:'전 직원 VOC 공유',date:'2026-11-11',status:'반려',rejectReason:'고객 연락처 항목이 포함되어 있습니다. 마스킹 후 다시 요청해 주세요.',decidedBy:'최관리',decidedAt:'2026-11-13'},
+      {id:'r6',kind:'Public URL 발급',appId:'a3',by:'김현업',reason:'고객지원 협력사 공유',days:30,date:'2026-11-10',status:'승인',decidedBy:'최관리',decidedAt:'2026-11-12'},
+      {id:'r7',kind:'앱 등록',appId:'a7',by:'한재무',reason:'재무팀 월 마감 보고용',date:'2026-11-13',status:'승인',decidedBy:'최관리',decidedAt:'2026-11-14'}
+    ],
+    urls:[
+      {id:'u1',appId:'a1',type:'Private',url:`https://${DOMAIN}/r/sales-dash`,expires:'',views:132,blocked:false},
+      {id:'u2',appId:'a3',type:'Private',url:`https://${DOMAIN}/r/voc-weekly`,expires:'',views:22,blocked:false},
+      {id:'u3',appId:'a3',type:'Public',url:`https://${DOMAIN}/p/7Kq2mX`,expires:'2026-12-12',views:39,blocked:false},
+      {id:'u4',appId:'a5',type:'Public',url:`https://${DOMAIN}/p/ev3Rt9`,expires:'2026-12-31',views:301,blocked:false},
+      {id:'u5',appId:'a5',type:'Private',url:`https://${DOMAIN}/r/ev-charger`,expires:'',views:117,blocked:false},
+      {id:'u6',appId:'a8',type:'Public',url:`https://${DOMAIN}/p/rl8Pz1`,expires:'2026-11-25',views:203,blocked:false},
+      {id:'u7',appId:'a10',type:'Public',url:`https://${DOMAIN}/p/kp4Lw2`,expires:'2026-11-18',views:144,blocked:false},
+      {id:'u8',appId:'a9',type:'Private',url:`https://${DOMAIN}/r/faq`,expires:'',views:510,blocked:false},
+      {id:'u9',appId:'a7',type:'Private',url:`https://${DOMAIN}/r/pj-cost`,expires:'',views:88,blocked:false},
+      {id:'u10',appId:'a6',type:'Private',url:`https://${DOMAIN}/r/weather-site`,expires:'',views:57,blocked:false}
+    ],
+    perm:{
+      a1:[{who:'김현업',type:'사용자',role:'관리'},{who:'영업기획팀',type:'그룹',role:'수정'},{who:'경영기획팀',type:'그룹',role:'열람'},{who:'박이용',type:'사용자',role:'열람'}],
+      a3:[{who:'김현업',type:'사용자',role:'관리'},{who:'고객지원팀',type:'그룹',role:'열람'}],
+      a5:[{who:'오데이터',type:'사용자',role:'관리'},{who:'전사',type:'그룹',role:'열람'}],
+      a6:[{who:'이개발',type:'사용자',role:'관리'},{who:'김현업',type:'사용자',role:'열람'}],
+      a7:[{who:'한재무',type:'사용자',role:'관리'},{who:'영업기획팀',type:'그룹',role:'열람'},{who:'생산팀',type:'그룹',role:'열람'}]
+    },
+    env:{
+      a1:[{k:'DB_HOST',v:'sales-db.internal',secret:false},{k:'DB_USER',v:'report_ro',secret:false},{k:'DB_PASSWORD',v:'example-pass',secret:true}],
+      a5:[{k:'DATA_GO_KR_API_KEY',v:'example-key-ev',secret:true}],
+      a6:[{k:'KMA_API_KEY',v:'example-key-kma',secret:true}]
+    },
+    deploys:[
+      {appId:'a1',ver:3,at:'11-15 14:20',by:'김현업',result:'성공',note:'지역 필터 추가',src:'GitHub main@4f2a91c'},
+      {appId:'a1',ver:2,at:'11-08 09:41',by:'김현업',result:'성공',note:'차트 색 변경',src:'GitHub main@b81c0de'},
+      {appId:'a1',ver:1,at:'11-01 17:05',by:'김현업',result:'성공',note:'첫 배포',src:'GitHub main@1a9e33f'},
+      {appId:'a4',ver:1,at:'11-17 10:02',by:'김현업',result:'실패',note:'chart.js 의존성 누락',src:'GitHub main@77d01aa'},
+      {appId:'a3',ver:2,at:'11-12 16:30',by:'김현업',result:'성공',note:'분류 기준 수정',src:'ZIP voc-weekly-v2.zip'},
+      {appId:'a2',ver:1,at:'11-16 11:12',by:'김현업',result:'성공',note:'첫 등록',src:'ZIP facility-check.zip'}
+    ],
+    wishes:[
+      {id:'w1',owner:'김현업',title:'지역별 주간 매출 비교 대시보드',data:'int',stage:'제작 중',at:'2026-11-18'},
+      {id:'w2',owner:'김현업',title:'경쟁사 공공 조달 낙찰 현황 탐색',data:'ext',stage:'아이디어',at:'2026-11-17'},
+      {id:'w3',owner:'김현업',title:'영업 회의록 자동 요약 보고서',data:'int',stage:'검토 요청',at:'2026-11-14'}
+    ],
+    memos:[
+      {id:'m1',owner:'김현업',text:'월별 매출 대시보드 Public URL은 협력사 미팅(11.27) 전에 발급 확인',pin:true,at:'11-18 17:40'},
+      {id:'m2',owner:'김현업',text:'교육 신청 안내: package.json에 chart.js 추가 후 재배포',pin:false,at:'11-17 10:15'},
+      {id:'m3',owner:'박이용',text:'충전소 현황 앱, 생산팀 회의 자료에 링크 넣기',pin:false,at:'11-19 09:02'}
+    ],
+    notis:[
+      {id:'n1',to:'김현업',t:'교육 신청 안내 빌드가 실패했습니다',go:'catalog-mine',at:'11-17 10:02',read:false},
+      {id:'n2',to:'김현업',t:'VOC 주간 리포트 전사 공개 요청이 반려되었습니다',go:'admin-rejected',at:'11-13 15:20',read:false},
+      {id:'n3',to:'최관리',t:'새 승인 요청 4건이 대기 중입니다',go:'admin-pending',at:'11-19 09:30',read:false},
+      {id:'n4',to:'박이용',t:'월별 매출 대시보드 열람 권한이 부여되었습니다',go:'catalog-reports',at:'11-15 14:30',read:false}
+    ],
+    ext:[
+      {id:'ev',name:'전기차 충전소 정보',org:'한국환경공단 · 공공데이터포털',how:'REST API',envKey:'DATA_GO_KR_API_KEY',cycle:'매일'},
+      {id:'kma',name:'단기예보 조회서비스',org:'기상청 · 공공데이터포털',how:'REST API',envKey:'KMA_API_KEY',cycle:'3시간'},
+      {id:'molit',name:'아파트 매매 실거래가',org:'국토교통부 · 공공데이터포털',how:'REST API',envKey:'DATA_GO_KR_API_KEY',cycle:'매일'},
+      {id:'kosis',name:'주민등록 인구 통계',org:'통계청 KOSIS',how:'OpenAPI',envKey:'KOSIS_API_KEY',cycle:'매월'},
+      {id:'csv',name:'패키지 포함 CSV',org:'보고서 ZIP 안의 정적 파일',how:'정적 파일',envKey:'-',cycle:'재배포 시'}
+    ],
+    int:[
+      {id:'sales',name:'영업 DB',kind:'PostgreSQL',owner:'영업기획팀',tables:'월별 매출 · 고객 · 제품 · 계약',access:'허용'},
+      {id:'jira',name:'업무 관리 (Jira)',kind:'Jira API',owner:'전사',tables:'이슈 · 스프린트 · 담당자',access:'허용'},
+      {id:'wiki',name:'사내 문서 (Confluence)',kind:'Confluence API',owner:'전사',tables:'회의록 · 결정 사항',access:'허용'},
+      {id:'facility',name:'설비 DB',kind:'MySQL',owner:'설비팀',tables:'설비 · 점검 이력',access:'허용'},
+      {id:'fin',name:'재무 DB',kind:'Oracle',owner:'재무팀',tables:'예산 · 집행',access:'요청 필요'},
+      {id:'hr',name:'인사 API',kind:'REST API',owner:'인사팀',tables:'임직원 · 조직',access:'승인 대기'}
+    ],
+    gens:[],
+    skills:[
+      {id:'k-guide',name:'웹앱 개발 가이드',file:'report-dev-guide-v2.md',kind:'가이드',size:'106KB',base:true,on:true,owner:'최관리',updated:'2026-11-10',uses:14,desc:'Next.js 프로젝트 구조, 빌드 규칙, 금지 사항',checks:['package.json이 프로젝트 루트에 있음','node_modules·.next 폴더를 넣지 않음','포트·출력 경로를 코드에 고정하지 않음']},
+      {id:'k-data',name:'사내 데이터 조회',file:'internal-data-query.md',kind:'스킬',size:'3.2KB',base:true,on:true,owner:'최관리',updated:'2026-11-12',uses:11,desc:'접속 정보 없이 VDAP 데이터 경로로 내부 데이터를 조회',checks:['DB 접속 정보·비밀번호를 코드에 넣지 않음','허용된 데이터 연결만 조회','조회 기간을 화면에 표시']},
+      {id:'k-weekly',name:'주간보고 구성',file:'weekly-report.md',kind:'스킬',size:'1.8KB',base:false,on:true,owner:'김현업',updated:'2026-11-14',uses:6,desc:'지표 요약, 완료 업무, 이슈, 다음 주 계획 순서',checks:['보고 기간(월~금)을 제목에 표시','완료·진행·이슈·계획 구역을 나눔','전주 대비 증감 표시']},
+      {id:'k-monthly',name:'월간 실적 구성',file:'monthly-kpi.md',kind:'스킬',size:'1.6KB',base:false,on:true,owner:'김현업',updated:'2026-11-14',uses:3,desc:'월 매출, 목표 대비 달성률, 누적 실적',checks:['목표 대비 달성률 표시','누적 실적 함께 표시','전월 대비 증감 표시']},
+      {id:'k-kpi',name:'KPI 대시보드 구성',file:'kpi-dashboard.md',kind:'스킬',size:'1.4KB',base:false,on:true,owner:'최관리',updated:'2026-11-11',uses:4,desc:'요약 카드 3~4개를 맨 위에, 아래에 차트와 표',checks:['요약 카드 3~4개','카드마다 기준 기간 표시','차트 아래 원자료 표']},
+      {id:'k-chart',name:'차트 규칙',file:'chart-rules.md',kind:'스킬',size:'0.9KB',base:false,on:true,owner:'최관리',updated:'2026-11-08',uses:5,desc:'항목 비교는 막대, 시간 흐름은 선. 단위를 값에 표기',checks:['값과 축에 단위 표기','범례 표시','색만으로 구분하지 않음']},
+      {id:'k-tone',name:'보고 문체',file:'report-tone.md',kind:'스킬',size:'0.7KB',base:false,on:true,owner:'사업성장실',updated:'2026-11-15',uses:7,desc:'개조식, 수치 먼저, 추측 표현 쓰지 않기',checks:['문장 끝 개조식','수치에 단위와 기간','추측 표현 없음']},
+      {id:'k-excel',name:'엑셀 내보내기',file:'excel-export.md',kind:'스킬',size:'0.6KB',base:false,on:true,owner:'이개발',updated:'2026-11-09',uses:2,desc:'표 위에 엑셀 내보내기 버튼 추가',checks:['표 위에 버튼 배치','파일 이름에 날짜 포함']},
+      {id:'k-pack',name:'VDAP 패키징',file:'vdap-packaging.md',kind:'스킬',size:'1.1KB',base:false,on:false,owner:'이개발',updated:'2026-11-06',uses:0,desc:'ZIP 규칙 정리와 업로드 전 점검',checks:['ZIP 100MB 이하','package.json 포함','node_modules 제외']}
+    ],
+    moreItems:[]
+  };
+}
+let S;
+try{const raw=localStorage.getItem(KEY);S=raw?JSON.parse(raw):null}catch(e){S=null}
+if(!S||S.v!==2)S=seed();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* ---------- 권한 ---------- */
+const U=()=>S.user?USERS[S.user]:null;
+const isAdmin=()=>S.user==='admin';
+const canMake=()=>S.user==='maker'||S.user==='admin';
+const isMine=a=>!!S.user&&a.owner===U().name;
+function gate(level){
+  if(!S.user){openModal({type:'login'});return false}
+  if(level==='make'&&!canMake()){toast('이용자 계정은 열람만 할 수 있습니다. 메이커 계정으로 로그인해 주세요');return false}
+  if(level==='admin'&&!isAdmin()){toast('승인·반려는 관리자만 처리할 수 있습니다');return false}
+  return true;
+}
+const app=id=>S.apps.find(a=>a.id===id);
+const dataById=id=>S.ext.find(d=>d.id===id)||S.int.find(d=>d.id===id);
+const isExt=id=>S.ext.some(d=>d.id===id);
+const myApps=()=>S.user?S.apps.filter(isMine):[];
+const visibleApprovals=()=>isAdmin()?S.approvals:S.approvals.filter(r=>S.user&&r.by===U().name);
+const pendingCount=()=>S.user?visibleApprovals().filter(r=>r.status==='대기').length:0;
+const unread=()=>S.user?S.notis.filter(n=>n.to===U().name&&!n.read).length:0;
+const manageable=()=>isAdmin()?S.apps:myApps();
+function notify(to,t,go){S.notis.unshift({id:uid('n'),to,t,go,at:stamp(new Date()),read:false})}
+
+/* ---------- 탭 구성 ---------- */
+const TABS=[
+  {id:'home',label:'홈',subs:[['overview','홈','홈'],['wish','만들고 싶은 앱','홈'],['mine','내가 만든 앱','홈'],['memo','메모','홈'],['noti','알림','홈']]},
+  {id:'catalog',label:'앱 카탈로그',tag:'LinkaiReport',links:[['LinkaiReport 원본',LINKAI]],subs:[['dash','대시보드','LinkaiReport'],['reports','보고서','LinkaiReport'],['mine','내 보고서','LinkaiReport',{ind:1}],['shared','공유받은 보고서','LinkaiReport',{ind:1}],['guide','보고서 개발 가이드','LinkaiReport'],['new','새 보고서 만들기','LinkaiReport',{hidden:1,parent:'reports'}]]},
+  {id:'studio',label:'Studio',tag:'사내 LLM',subs:[['new','만들기','Studio'],['weekly','주간보고','빠른 시작'],['monthly','월간 실적 보고서','빠른 시작'],['dashboard','KPI 대시보드','빠른 시작'],['history','생성 이력','기록']]},
+  {id:'templates',label:'템플릿',subs:[['all','전체','용도'],['report','보고서','용도'],['dash','대시보드','용도'],['tool','입력 양식·업무 도구','용도'],['guide','개발 가이드 파일','파일']]},
+  {id:'data',label:'데이터',subs:[['ext','외부 데이터','구분'],['int','내부 데이터','구분'],['connect','연결 추가','관리'],['usage','사용 현황','관리']]},
+  {id:'admin',label:'관리',subs:[['pending','승인 대기','승인'],['rejected','반려','승인'],['approved','승인 완료','승인'],['urls','공유 중인 URL','공유'],['perm','사용자·권한','공유'],['env','환경변수','앱 환경'],['deploy','배포 이력','앱 환경'],['settings','앱 설정','앱 환경'],['skills','스킬 관리','Studio'],['more','추가 예정 항목','기타']]}
+];
+let R={tab:'home',sub:'overview'};
+function parseHash(){
+  const h=(location.hash||'').slice(1);const i=h.indexOf('-');
+  const tab=i>0?h.slice(0,i):h,sub=i>0?h.slice(i+1):'';
+  const T=TABS.find(t=>t.id===tab);
+  if(!T)return {tab:'home',sub:'overview'};
+  return {tab,sub:T.subs.some(s=>s[0]===sub)?sub:T.subs[0][0]};
+}
+function go(name){if(location.hash.slice(1)===name){R=parseHash();render()}else location.hash=name}
+
+/* ---------- 공통 조각 ---------- */
+const badge=s=>{const x=STATUS[s]||[s,'b-idle'];return `<span class="badge ${x[1]}">${x[0]}</span>`};
+const ph=(t,sub,right)=>`<div class="ph"><div><h1>${t}</h1>${sub?`<p>${sub}</p>`:''}</div>${right?`<div class="row">${right}</div>`:''}</div>`;
+const empty=(msg,btn)=>`<div class="empty"><span>${msg}</span>${btn||''}</div>`;
+const loginBtn=`<button class="btn pri" data-act="login">로그인</button>`;
+const needLogin=msg=>empty(msg||'로그인하면 볼 수 있습니다',loginBtn);
+const dataTag=id=>{const d=dataById(id);if(!d)return '';return `<span class="tag ${isExt(id)?'ext':'int'}">${isExt(id)?'외부':'내부'} · ${esc(d.name)}</span>`};
+const primaryUrl=a=>{const u=S.urls.find(x=>x.appId===a.id&&x.type==='Private');return u?u.url:`https://${DOMAIN}/r/${a.slug}`};
+function urlState(u){
+  if(u.blocked)return ['차단','b-bad'];
+  if(!u.expires)return ['유효','b-ok'];
+  const today=ymd(new Date());
+  if(u.expires<today)return ['만료','b-idle'];
+  if(u.expires<=addDays(today,7))return ['만료 임박','b-busy'];
+  return ['유효','b-ok'];
+}
+
+function appCard(a){
+  const mine=isMine(a)||isAdmin();
+  return `<article class="card appc">
+    <div class="top2"><div class="name">${esc(a.name)}</div>${badge(a.status)}</div>
+    <p class="muted">${esc(a.desc)}</p>
+    <div class="url">${esc(primaryUrl(a))}</div>
+    <div class="meta"><span class="tag">${a.cat}</span><span class="tag ${a.vis==='Public'?'pub':''}">${a.vis}</span><span class="tag">${a.src} · ${esc(a.llm)}</span>${a.data.map(dataTag).join('')}</div>
+    <div class="row sb"><span class="sample">${esc(a.owner)} · ${esc(a.dept)} · 열람 ${a.views}</span>
+    <span class="row"><button class="btn sm pri" data-act="open" data-id="${a.id}">열기</button>${mine?`<button class="btn sm" data-act="manage" data-id="${a.id}">관리</button>`:''}</span></div>
+  </article>`;
+}
+
+/* ---------- 헤더·사이드 ---------- */
+function renderTop(){
+  const u=U(),pc=pendingCount();
+  $('#top').innerHTML=`<div class="top-in">
+    <a class="logo" href="#home-overview" aria-label="Graphio VDAP 홈"><img src="data:image/png;base64,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" alt="" width="30" height="28"><span>Graphio VDAP</span></a>
+    <nav class="tabs" aria-label="주 메뉴">${TABS.map(t=>`<a href="#${t.id}-${t.subs[0][0]}" class="${R.tab===t.id?'on':''}">${t.label}${t.tag?`<small>${t.tag}</small>`:''}</a>`).join('')}</nav>
+    <div class="right">
+      <button class="btn" data-act="goApprovals" aria-label="승인 대기 ${pc}건">승인${pc?` <span class="cnt">${pc}</span>`:''}</button>
+      <div class="seg" role="group" aria-label="화면 모드"><button data-act="mode" data-v="light" class="${S.mode!=='dark'?'on':''}" aria-pressed="${S.mode!=='dark'}">원본</button><button data-act="mode" data-v="dark" class="${S.mode==='dark'?'on':''}" aria-pressed="${S.mode==='dark'}">다크</button></div>
+      ${u?`<span class="who">${u.name}<small>${u.role} · ${u.dept}</small></span><button class="btn" data-act="logout">로그아웃</button>`:loginBtn}
+    </div></div>`;
+}
+function sideCount(tab,sub){
+  if(!S.user)return '';
+  const k=tab+'-'+sub;
+  if(k==='home-mine')return `<span class="n">${myApps().length}</span>`;
+  if(k==='home-noti'){const n=unread();return n?`<span class="n hot">${n}</span>`:''}
+  if(k==='home-wish')return `<span class="n">${S.wishes.filter(w=>w.owner===U().name).length}</span>`;
+  if(k==='catalog-mine'){const n=myOrAll().filter(a=>a.status==='building'||a.status==='failed').length;return n?`<span class="n hot">${n}</span>`:`<span class="n">${myApps().length}</span>`}
+  if(k==='catalog-shared')return `<span class="n">${sharedApps().length}</span>`;
+  if(k==='admin-skills')return `<span class="n">${S.skills.filter(x=>x.on).length}</span>`;
+  if(k==='admin-pending'){const n=pendingCount();return n?`<span class="n hot">${n}</span>`:''}
+  if(k==='admin-rejected')return `<span class="n">${visibleApprovals().filter(r=>r.status==='반려').length}</span>`;
+  if(k==='studio-history')return `<span class="n">${S.gens.length}</span>`;
+  return '';
+}
+function renderSide(){
+  const T=TABS.find(t=>t.id===R.tab);let last='',h='';
+  const cur=T.subs.find(x=>x[0]===R.sub),parent=cur&&cur[3]&&cur[3].parent;
+  T.subs.forEach(([id,label,group,o])=>{
+    o=o||{};if(o.hidden)return;
+    if(group!==last){h+=`<h4>${group}</h4>`;last=group}
+    h+=`<a href="#${T.id}-${id}" class="${R.sub===id||parent===id?'on':''}${o.ind?' ind':''}">${label}${sideCount(T.id,id)}</a>`;
+  });
+  if(T.links)h+=`<h4>바로가기</h4>`+T.links.map(l=>`<a href="${l[1]}" target="_blank" rel="noopener">${l[0]}<span class="n">↗</span></a>`).join('');
+  const side=$('#side');side.className='side'+(R.tab==='studio'?' studio':'');side.innerHTML=h;
+}
+
+/* ---------- 홈 ---------- */
+const myWishes=()=>S.user?S.wishes.filter(w=>w.owner===U().name):[];
+const myMemos=()=>S.memos.filter(m=>m.owner===(S.user?U().name:'손님')).sort((a,b)=>(b.pin-a.pin)||(b.at>a.at?1:-1));
+function wishForm(){
+  return `<form class="inline" data-form="wish">
+    <input id="w-title" class="inp" placeholder="만들고 싶은 앱을 한 줄로 적어 주세요. 예: 지역별 주간 매출 비교 대시보드" aria-label="만들고 싶은 앱" required>
+    <select id="w-data" class="inp" aria-label="사용할 데이터"><option value="int">회사 내부 데이터 → Studio</option><option value="ext">외부 데이터·외부 LLM → 앱 카탈로그</option></select>
+    <button class="btn pri">추가</button></form>`;
+}
+function wishCard(w){
+  return `<div class="wcard ${w.data}">
+    <div class="row sb"><span class="tag ${w.data}">${w.data==='int'?'내부 데이터 · Studio':'외부 데이터 · 앱 카탈로그'}</span>
+    <select class="stage" data-change="stage" data-id="${w.id}" aria-label="진행 단계">${['아이디어','제작 중','검토 요청','완료'].map(s=>`<option ${s===w.stage?'selected':''}>${s}</option>`).join('')}</select></div>
+    <b>${esc(w.title)}</b>
+    <div class="row sb"><span class="sample">${w.at}</span><span class="row"><button class="btn sm ${w.data==='int'?'st':'pri'}" data-act="startWish" data-id="${w.id}">${w.data==='int'?'Studio에서 만들기':'카탈로그에 등록'}</button><button class="btn sm ghost" data-act="delWish" data-id="${w.id}" aria-label="삭제">삭제</button></span></div>
+  </div>`;
+}
+function myAppsList(n){
+  if(!S.user)return needLogin('로그인하면 내가 만든 앱이 보입니다');
+  const list=myApps().slice(0,n||99);
+  if(!list.length)return empty('아직 만든 앱이 없습니다',`<a class="btn pri" href="#catalog-new">+ 새 보고서</a>`);
+  return `<div class="list">${list.map(a=>`<div class="li"><div class="main"><b>${esc(a.name)}</b><span class="url">${esc(primaryUrl(a))}</span></div>
+    <span class="row">${badge(a.status)}<span class="tag ${a.vis==='Public'?'pub':''}">${a.vis}</span><button class="btn sm" data-act="open" data-id="${a.id}">열기</button><button class="btn sm" data-act="manage" data-id="${a.id}">관리</button></span></div>`).join('')}</div>`;
+}
+function memoBox(n){
+  const list=myMemos().slice(0,n||99);
+  return `<div class="memo"><form class="memo" data-form="memo"><textarea id="m-text" class="inp" placeholder="메모를 적고 저장하세요. 예: 금요일까지 Public URL 만료일 연장" aria-label="메모 내용" required></textarea><div class="row sb"><span class="help">${S.user?'':'로그인 전 메모는 손님 메모로 저장됩니다. '}이 브라우저에만 저장됩니다</span><button class="btn pri">저장</button></div></form>
+  ${list.length?list.map(m=>`<div class="mitem ${m.pin?'pin':''}"><p>${esc(m.text)}</p><div class="row sb"><span class="sample">${m.at}${m.pin?' · 고정':''}</span><span class="row"><button class="btn sm ghost" data-act="pinMemo" data-id="${m.id}">${m.pin?'고정 해제':'고정'}</button><button class="btn sm ghost" data-act="delMemo" data-id="${m.id}">삭제</button></span></div></div>`).join(''):`<p class="muted">저장한 메모가 없습니다.</p>`}</div>`;
+}
+const V={};
+V['home-overview']=()=>{
+  const u=U();
+  let h=ph(u?`${u.name}님의 홈`:'Graphio VDAP',u?`${u.dept} · ${u.role} · 만들 앱, 만든 앱, 메모를 한 화면에서 봅니다`:'AI로 만든 웹 앱을 등록·공유·운영합니다. 로그인하면 역할에 맞는 화면이 열립니다.',u?'':loginBtn);
+  h+=`<section class="sec"><div class="sec-h"><h2>만들고 싶은 앱</h2><a class="btn sm" href="#home-wish">전체 보기</a></div>`;
+  if(!u)h+=needLogin('로그인하면 만들고 싶은 앱을 적어 두고 Studio나 카탈로그로 바로 넘길 수 있습니다');
+  else h+=wishForm()+`<div class="grid">${myWishes().slice(0,6).map(wishCard).join('')||'<p class="muted">적어 둔 앱이 없습니다.</p>'}</div>`;
+  h+=`</section><div class="split"><section class="sec"><div class="sec-h"><h2>내가 만든 앱</h2><a class="btn sm" href="#home-mine">전체 보기</a></div>${myAppsList(5)}</section>
+    <section class="sec"><div class="sec-h"><h2>메모</h2><a class="btn sm" href="#home-memo">전체 보기</a></div>${memoBox(4)}</section></div>`;
+  return h;
+};
+V['home-wish']=()=>ph('만들고 싶은 앱','내부 데이터로 만들 앱은 Studio로, 외부 데이터·외부 LLM으로 만들 앱은 앱 카탈로그 등록으로 넘깁니다.')+(S.user?wishForm()+`<div class="grid">${myWishes().map(wishCard).join('')||'<p class="muted">적어 둔 앱이 없습니다.</p>'}</div>`:needLogin());
+V['home-mine']=()=>ph('내가 만든 앱',S.user?`${myApps().length}개 · 상태와 주소를 확인하고 관리 화면으로 이동합니다`:'',canMake()?`<a class="btn pri" href="#catalog-new">+ 새 보고서</a><a class="btn st" href="#studio-new">Studio로 만들기</a>`:'')+myAppsList();
+V['home-memo']=()=>ph('메모','앱 작업과 승인 일정 등을 적어 둡니다. 고정한 메모가 위에 옵니다.')+memoBox();
+V['home-noti']=()=>{
+  if(!S.user)return ph('알림')+needLogin();
+  const list=S.notis.filter(n=>n.to===U().name);
+  return ph('알림',`읽지 않은 알림 ${unread()}건`,list.length?`<button class="btn sm" data-act="readAll">모두 읽음</button>`:'')+(list.length?`<div class="list">${list.map(n=>`<div class="li"><div class="main"><b style="font-weight:${n.read?500:700}">${esc(n.t)}</b><span class="sample">${n.at}</span></div><button class="btn sm" data-act="noti" data-id="${n.id}">이동</button></div>`).join('')}</div>`:empty('알림이 없습니다'));
+};
+
+/* ---------- 앱 카탈로그 (LinkaiReport) ---------- */
+const myOrAll=()=>isAdmin()?S.apps:myApps();
+const catalogVisible=()=>S.apps.filter(a=>S.user?true:a.vis==='Public');
+const sharedApps=()=>S.user?S.apps.filter(a=>!isMine(a)&&a.status!=='pending'&&(S.perm[a.id]||[]).some(p=>p.who===U().name||p.who===U().dept||p.who==='전사')):[];
+const newBtn=`<a class="btn pri" href="#catalog-new">+ 새 보고서</a>`;
+V['catalog-dash']=()=>{
+  const list=catalogVisible();
+  const live=list.filter(a=>a.status==='live').length,busy=list.filter(a=>a.status==='building'||a.status==='pending').length,fail=list.filter(a=>a.status==='failed').length,views=list.reduce((s,a)=>s+a.views,0);
+  const byCat=CATS.map(c=>[c,list.filter(a=>a.cat===c).length]);const max=Math.max(1,...byCat.map(x=>x[1]));
+  const recent=[...list].sort((a,b)=>b.updated>a.updated?1:-1).slice(0,5);
+  return ph('대시보드','외부 LLM(Claude·ChatGPT·Cursor 등)으로 만든 Next.js 보고서를 올려 빌드하고 공유합니다.',`<a class="btn" href="${LINKAI}" target="_blank" rel="noopener">LinkaiReport 원본</a>${newBtn}`)
+  +(S.user?'':`<p class="note">로그인 전에는 Public 보고서만 보입니다.</p>`)
+  +`<div class="grid sm"><div class="tile"><span class="v">${list.length}</span><span class="k">등록 보고서</span></div><div class="tile"><span class="v">${live}</span><span class="k">서비스 중</span></div><div class="tile"><span class="v">${busy}</span><span class="k">빌드·승인 대기</span></div><div class="tile"><span class="v" style="color:var(--bad)">${fail}</span><span class="k">빌드 실패</span></div><div class="tile"><span class="v">${views.toLocaleString()}</span><span class="k">누적 열람</span></div></div>
+  <div class="split"><section class="sec"><h2>최근 배포</h2><div class="list">${recent.map(a=>`<div class="li"><div class="main"><b>${esc(a.name)}</b><span class="sample">${a.updated} · v${a.ver} · ${a.src} · ${esc(a.llm)}</span></div><span class="row">${badge(a.status)}<button class="btn sm" data-act="open" data-id="${a.id}">열기</button></span></div>`).join('')}</div></section>
+  <section class="sec"><h2>카테고리별 보고서</h2><div class="card hbars">${byCat.map(([c,n])=>`<div class="hbar"><span>${c}</span><span class="track"><i style="width:${n/max*100}%"></i></span><span class="v">${n}개</span></div>`).join('')}</div>
+  <h2>등록부터 공유까지</h2><div class="card"><div class="steps">${['AI 웹 앱 제작','소스 등록 (ZIP·GitHub·GitLab)','자동 빌드','URL 공유','운영 관리'].map(s=>`<span class="done">${s}</span>`).join('')}</div><p class="help">개발 가이드(report-dev-guide-v2.md)를 외부 AI 코딩 도구에 주고 Next.js 프로젝트를 만든 뒤 올립니다.</p></div></section></div>`;
+};
+function filterBar(){
+  return `<div class="row"><input id="cat-q" class="inp" style="max-width:340px" placeholder="이름·설명·부서로 검색" value="${esc(S.catQ)}" aria-label="보고서 검색">
+    <select id="cat-status" class="inp" style="width:auto" aria-label="상태"><option value="">모든 상태</option>${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${S.catStatus===k?'selected':''}>${v[0]}</option>`).join('')}</select></div>
+    <div class="chips">${['',...CATS].map(c=>`<button data-act="catCat" data-v="${c}" class="${S.catCat===c?'on':''}">${c||'전체'}</button>`).join('')}</div>`;
+}
+function filtered(list){
+  const q=S.catQ.trim().toLowerCase();
+  if(q)list=list.filter(a=>(a.name+a.desc+a.dept+a.owner).toLowerCase().includes(q));
+  if(S.catCat)list=list.filter(a=>a.cat===S.catCat);
+  if(S.catStatus)list=list.filter(a=>a.status===S.catStatus);
+  return list;
+}
+function reportsView(list){
+  list=filtered(list);
+  return filterBar()+`<p class="help">${list.length}개 보고서</p><div class="grid">${list.map(appCard).join('')||empty('조건에 맞는 보고서가 없습니다')}</div>`;
+}
+function buildRow(a){
+  const p=a.progress||0,step=Math.min(3,Math.floor(p/25));
+  return `<div class="card"><div class="row sb"><div><b>${esc(a.name)}</b> <span class="sample">v${a.ver} · ${a.src}</span></div>${badge(a.status)}</div>
+  ${a.status==='building'?`<div class="steps">${BUILD_STEPS.map((s,i)=>`<span class="${i<step?'done':i===step?'run':''}">${s}</span>`).join('')}</div><div class="meter"><i style="width:${p}%"></i></div><span class="help">${BUILD_STEPS[step]} 단계 · ${p}%</span>`:''}
+  ${a.status==='failed'?`<pre class="code">${esc(a.log||'빌드 실패')}</pre><div class="row"><button class="btn sm pri" data-act="redeploy" data-id="${a.id}">수정 후 재배포</button><span class="help">재배포가 실패해도 이전 정상 버전은 유지됩니다</span></div>`:''}</div>`;
+}
+V['catalog-reports']=()=>ph('보고서','카테고리·상태로 거르고, 열기를 누르면 접속 주소와 사용 데이터를 확인합니다.',newBtn)+(S.user?'':`<p class="note">로그인 전에는 Public 보고서만 보입니다.</p>`)+reportsView(catalogVisible());
+V['catalog-mine']=()=>{
+  if(!S.user)return ph('내 보고서')+needLogin();
+  const act=myOrAll().filter(a=>a.status==='building'||a.status==='failed');
+  return ph('내 보고서',isAdmin()?'관리자는 모든 보고서의 빌드 상태를 봅니다.':'내가 올린 보고서와 빌드 상태입니다.',newBtn)
+    +(act.length?`<section class="sec"><h2>빌드 진행 중 · 실패</h2>${act.map(buildRow).join('')}</section>`:'')
+    +`<section class="sec"><h2>보고서</h2>${reportsView(myApps())}</section>`;
+};
+V['catalog-shared']=()=>S.user?ph('공유받은 보고서','다른 사람이 나 또는 우리 부서에 열람 권한을 준 보고서입니다.')+reportsView(sharedApps()):ph('공유받은 보고서')+needLogin();
+/* 새 보고서 만들기: LinkaiReport 화면 구성을 따른다 */
+let NF={title:'',desc:'',cat:'',src:'ZIP',file:null,repo:'',branch:'main',env:[],envOpen:false,err:''};
+const nfReady=()=>NF.title.trim()&&(NF.src==='ZIP'?!!NF.file:/^https:\/\/(github\.com|gitlab\.com|[\w.-]+)\/[^/\s]+\/[^/\s]+/.test(NF.repo.trim()));
+const fsize=b=>b>1048576?(b/1048576).toFixed(1)+'MB':Math.max(1,Math.round(b/1024))+'KB';
+const ICON={
+  zip:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M10 7h1M10 10h1M10 13h1v3h-1z"/></svg>',
+  gh:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>',
+  gl:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 21 3 14l2-9 3 8h8l3-8 2 9z"/></svg>',
+  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>',
+  env:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>'
+};
+V['catalog-new']=()=>{
+  if(!S.user)return ph('새 보고서 만들기')+needLogin('보고서를 만들려면 로그인해 주세요');
+  if(!canMake())return ph('새 보고서 만들기')+empty('이용자 계정은 보고서를 만들 수 없습니다. 메이커 계정으로 로그인해 주세요',`<button class="btn" data-act="login">계정 바꾸기</button>`);
+  const srcBtn=(v,ic,l)=>`<button type="button" class="${NF.src===v?'on':''}" data-act="nfSrc" data-v="${v}" aria-pressed="${NF.src===v}">${ICON[ic]}${l}</button>`;
+  return `<div class="lr-wrap"><div class="ph"><h1>새 보고서 만들기</h1><a class="help" href="${GUIDE}" target="_blank" rel="noopener">업로드 전 개발 가이드 확인</a></div>
+  <form class="card form" style="max-width:none;padding:24px" data-form="newReport" novalidate>
+    <div class="field"><label for="nf-title">제목</label><input id="nf-title" class="inp" placeholder="보고서 제목" value="${esc(NF.title)}" data-nf="title"></div>
+    <div class="field"><label for="nf-desc">설명</label><textarea id="nf-desc" class="inp" placeholder="보고서에 대한 설명" data-nf="desc">${esc(NF.desc)}</textarea></div>
+    <div class="field"><label for="nf-cat">카테고리</label><select id="nf-cat" class="inp" data-nf="cat"><option value="">카테고리 선택 (선택사항)</option>${CATS.map(c=>`<option ${NF.cat===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><span class="lb">소스 방식</span><div class="srcseg">${srcBtn('ZIP','zip','ZIP 파일 업로드')}${srcBtn('GitHub','gh','GitHub 저장소')}${srcBtn('GitLab','gl','GitLab 저장소')}</div></div>
+    ${NF.src==='ZIP'?`<div class="field"><span class="lb">ZIP 파일 업로드</span>
+      <label class="dropz" id="nf-drop" for="nf-file">${ICON.up}<b style="font-weight:500">${NF.file?esc(NF.file.name):'파일을 드래그하거나 클릭하여 업로드'}</b><span class="help">${NF.file?fsize(NF.file.size)+' · 다른 파일을 끌어 놓으면 바뀝니다':'ZIP 파일만 가능, 최대 100MB'}</span></label>
+      <input id="nf-file" type="file" accept=".zip" hidden></div>`
+    :`<div class="field"><label for="nf-repo">${NF.src} 저장소 주소</label><input id="nf-repo" class="inp mono" placeholder="https://${NF.src==='GitHub'?'github.com':'gitlab.com'}/org/report-repo" value="${esc(NF.repo)}" data-nf="repo">
+      <div class="row"><label for="nf-branch" class="help">브랜치</label><input id="nf-branch" class="inp" style="max-width:180px" value="${esc(NF.branch)}" data-nf="branch"><a class="help" href="${GITGUIDE}" target="_blank" rel="noopener">비공개 저장소 연결 가이드</a></div></div>`}
+    <span class="err" id="nf-err">${esc(NF.err)}</span>
+    <div class="field"><span class="lb">환경변수 (선택)</span><div class="row"><button type="button" class="btn" data-act="nfEnv">${ICON.env}환경변수</button><span class="help">${NF.env.filter(e=>e.k).length?NF.env.filter(e=>e.k).map(e=>esc(e.k)).join(', '):'등록된 환경변수가 없습니다'}</span></div>
+      ${NF.envOpen?`<div class="card" style="background:var(--bg)">${NF.env.map((e,i)=>`<div class="inline"><input class="inp mono" placeholder="KEY" value="${esc(e.k)}" data-nfenv="k" data-i="${i}" aria-label="환경변수 이름"><input class="inp mono" type="password" placeholder="값" value="${esc(e.v)}" data-nfenv="v" data-i="${i}" aria-label="환경변수 값"><button type="button" class="btn ghost" data-act="nfEnvDel" data-i="${i}">삭제</button></div>`).join('')}<button type="button" class="btn sm" style="justify-self:start" data-act="nfEnvAdd">+ 추가</button><span class="help">API 인증키 등은 코드에 넣지 말고 여기에 둡니다</span></div>`:''}</div>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-act="nfCancel">취소</button><button class="btn pri" id="nf-submit" ${nfReady()?'':'disabled'}>보고서 생성</button></div>
+  </form></div>`;
+};
+function nfFile(f){
+  if(!f)return;
+  if(!/\.zip$/i.test(f.name)){NF.err='ZIP 파일만 올릴 수 있습니다';render();return}
+  if(f.size>100*1048576){NF.err='100MB 이하 파일만 올릴 수 있습니다';render();return}
+  NF.err='';NF.file={name:f.name,size:f.size};render();
+}
+const PROMPT=`첨부한 report-dev-guide-v2.md 규칙을 지켜 Next.js 보고서 프로젝트를 만들어 줘.
+주제: 지역별 전기차 충전소 현황 지도와 급속·완속 비율 차트
+데이터: 공공데이터포털 전기차 충전소 정보 API
+인증키: 코드에 넣지 말고 환경변수 DATA_GO_KR_API_KEY로 읽기
+결과: package.json이 최상위에 오도록 ZIP으로 묶어 줘 (node_modules, .next 제외)`;
+V['catalog-guide']=()=>ph('보고서 개발 가이드','외부 LLM에 가이드를 주고 VDAP 규칙에 맞는 Next.js 프로젝트를 만듭니다.')
+  +`<div class="grid"><div class="card"><h3>상세 가이드 전문</h3><p class="muted">프로젝트 구조, 빌드 규칙, 환경변수 사용법</p><a class="btn sm" href="${GUIDE}" target="_blank" rel="noopener">가이드 열기</a></div>
+  <div class="card"><h3>비공개 저장소 연결</h3><p class="muted">Git 토큰 발급과 저장소 연결 순서</p><a class="btn sm" href="${GITGUIDE}" target="_blank" rel="noopener">가이드 열기</a></div>
+  <div class="card"><h3>가이드 파일</h3><p class="muted">report-dev-guide-v2.md를 AI 도구에 첨부합니다</p><a class="btn sm" href="#templates-guide">파일 안내</a></div></div>
+  <section class="sec"><h2>순서</h2><div class="list">${[['제작','가이드를 AI 코딩 도구에 주고 Next.js 웹 앱을 만듭니다'],['등록','ZIP으로 올리거나 GitHub·GitLab 저장소를 연결합니다'],['배포','검증·빌드 후 접속 URL이 발급됩니다'],['공유','Private URL 사용자 권한, Public URL 유효기간을 정합니다'],['운영','분류·검색, 빌드 상태, 열람 이력, 환경변수, 재배포를 관리합니다']].map((s,i)=>`<div class="li"><div class="main"><b>${i+1}. ${s[0]}</b><span class="muted">${s[1]}</span></div></div>`).join('')}</div></section>
+  <section class="sec"><div class="sec-h"><h2>외부 LLM에 줄 요청 예시</h2><button class="btn sm" data-act="copy" data-text="${esc(PROMPT)}">복사</button></div><pre class="code">${esc(PROMPT)}</pre></section>`;
+
+/* ---------- Studio (사내 LLM + 스킬 + 내부 데이터) ---------- */
+const MODELS=[['Qwen3-32B','범용 · 기본'],['EXAONE-3.5-32B','한국어 문서'],['Llama-3.3-70B','긴 문서·코드']];
+const PRESETS={
+  weekly:{prompt:'이번 주 주간보고를 만들어 줘. 주요 지표, 완료 업무, 이슈, 다음 주 계획 순서로.',skills:['k-guide','k-data','k-weekly','k-tone'],data:['sales','jira','wiki']},
+  monthly:{prompt:'10월 실적 보고서를 만들어 줘. 월별 매출과 목표, 지역별 누적 매출을 차트로.',skills:['k-guide','k-data','k-monthly','k-chart','k-tone'],data:['sales','jira']},
+  dashboard:{prompt:'부서 KPI 대시보드를 만들어 줘. 요약 카드, 지역별·제품별 매출.',skills:['k-guide','k-data','k-kpi','k-chart'],data:['sales','jira','facility']}
+};
+const QUICK=['이번 주 영업기획팀 주간보고','10월 지역별 매출 실적 보고서','지역·제품별 KPI 대시보드, 엑셀 내보내기 포함','설비 점검 결과 주간 요약'];
+function detectType(p,out){
+  if(out&&out!=='auto')return out;
+  if(/주간|위클리|이번 주|지난주/.test(p))return 'weekly';
+  if(/월간|월별|실적|\d+월/.test(p))return 'monthly';
+  return 'dashboard';
+}
+const skillById=id=>S.skills.find(k=>k.id===id);
+const GEN_STEPS=['요청 정리','스킬 적용','사내 LLM 생성','가이드 점검','미리보기 구성'];
+const SALES={m:[42,39,47,45,51,49,53,50,56,58],t:[45,45,48,48,50,50,52,52,55,57],
+  week:{this:{v:14.0,p:13.1,deals:7,pdeals:5,pipe:38.5,reg:[['수도권',6.1],['영남',3.2],['충청',2.3],['호남',1.4],['강원·제주',1.0]]},
+        last:{v:13.1,p:12.4,deals:5,pdeals:6,pipe:36.2,reg:[['수도권',5.8],['영남',2.9],['충청',2.2],['호남',1.3],['강원·제주',0.9]]}},
+  regM:[['수도권',24.6],['영남',13.1],['충청',9.4],['호남',6.2],['강원·제주',4.7]],
+  prod:[['VDAP 구축','18.2','31%'],['IRIS 유지보수','14.9','26%'],['Graphio 라이선스','12.5','22%'],['데이터 컨설팅','7.6','13%'],['기타','4.8','8%']]};
+const JIRA={
+  '영업기획팀':{done:['11월 지역별 매출 마감 집계','A사 갱신 계약 견적 발송','하반기 가격 정책 초안 검토','영업 DB 고객 등급 재분류','주간 파이프라인 회의'],doing:['B사 신규 제안서 작성 (마감 11.27)','영남권 대리점 실적 편차 원인 분석'],issue:['충청권 목표 대비 92%, 12월 프로모션 검토 필요'],next:['12월 영업 목표 확정','B사 제안 발표 리허설','분기 고객 만족도 조사 발송']},
+  '사업성장실':{done:['제품 소개 페이지 문구 확정','경쟁사 조사 보고서 업데이트','행사 부스 운영 결과 정리','브로슈어 QR 링크 점검'],doing:['기술블로그 12월 원고 2편','제안 레퍼런스 장표 정리'],issue:['도입 가격·라이선스 안내 기준 미확정'],next:['행사 리드 후속 연락 일정 수립','12월 마케팅 캘린더 확정']},
+  'IT팀':{done:['VDAP 빌드 서버 디스크 증설','사내 인증서 갱신','백업 스크립트 점검'],doing:['인사 API 접근 권한 정책 정리','모니터링 알림 규칙 개편'],issue:['빌드 대기열 피크 시간대 평균 4분 지연'],next:['절전 정책 30분→10분 시험 적용','신규 입사자 계정 일괄 생성']}
+};
+const WIKI={
+  '영업기획팀':['11.18 주간 영업회의: 12월 프로모션은 B안(대리점 인센티브)으로 결정','11.19 가격 정책 검토: 공공 부문 할인율 상한 유지'],
+  '사업성장실':['11.17 마케팅 회의: 12월 웨비나 주제 확정','11.19 제품 회의: 소개 자료 대외 배포 기준 확정'],
+  'IT팀':['11.18 운영 회의: 빌드 서버 증설 완료 보고','11.20 보안 점검: 외부 공유 링크 만료 기본값 30일 유지']
+};
+function weekRange(which){
+  const d=new Date();const day=(d.getDay()+6)%7;const mon=new Date(d);mon.setDate(d.getDate()-day-(which==='last'?7:0));
+  const fri=new Date(mon);fri.setDate(mon.getDate()+4);
+  return {label:`${fri.getMonth()+1}월 ${Math.ceil(fri.getDate()/7)}주차`,range:`${mon.getMonth()+1}.${mon.getDate()}~${fri.getMonth()+1}.${fri.getDate()}`};
+}
+const pct=(a,b)=>((a-b)/b*100);
+const sign=v=>`${v>=0?'+':''}${v.toFixed(1)}%`;
+function weeklyDoc(o){
+  const w=weekRange(o.period),s=SALES.week[o.period],j=JIRA[o.dept],src=o.sources;
+  let h=`<header><span class="tag int">Studio · ${esc(o.model||'사내 LLM')} · 내부 데이터</span><h2>${esc(o.dept)} 주간보고 · ${w.label} (${w.range})</h2><span class="sample">작성 ${o.at} · ${esc(o.by)}</span></header>`;
+  if(src.includes('sales')){const ch=pct(s.v,s.p),mx=Math.max(...s.reg.map(r=>r[1]));
+    h+=`<section class="sec"><h3>주요 지표</h3><div class="grid sm"><div class="tile"><span class="k">주간 매출 (전사)</span><span class="v">${s.v.toFixed(1)}억</span><span class="d ${ch>=0?'up':'down'}">전주 대비 ${sign(ch)}</span></div><div class="tile"><span class="k">신규 계약</span><span class="v">${s.deals}건</span><span class="d ${s.deals>=s.pdeals?'up':'down'}">전주 ${s.pdeals}건</span></div><div class="tile"><span class="k">진행 중 파이프라인</span><span class="v">${s.pipe}억</span></div></div>
+    <div class="card hbars">${s.reg.map(r=>`<div class="hbar"><span>${r[0]}</span><span class="track st"><i style="width:${r[1]/mx*100}%"></i></span><span class="v">${r[1].toFixed(1)}억</span></div>`).join('')}</div></section>`;}
+  if(src.includes('jira'))h+=`<section class="sec"><h3>완료한 업무 (${j.done.length}건)</h3><ul>${j.done.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section><section class="sec"><h3>진행 중 · 이슈</h3><ul>${j.doing.map(x=>`<li>${esc(x)}</li>`).join('')}${j.issue.map(x=>`<li><b>이슈</b> ${esc(x)}</li>`).join('')}</ul></section>`;
+  if(src.includes('wiki'))h+=`<section class="sec"><h3>회의·결정 사항</h3><ul>${WIKI[o.dept].map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section>`;
+  if(src.includes('facility'))h+=`<section class="sec"><h3>설비 점검</h3><p>점검 128건 중 이상 3건 (2라인 컨베이어 2건, 5라인 센서 1건). 조치 완료 2건.</p></section>`;
+  if(src.includes('fin'))h+=`<section class="sec"><h3>예산 집행</h3><p>11월 누적 집행률 72.4% (연간 예산 기준).</p></section>`;
+  if(src.includes('jira'))h+=`<section class="sec"><h3>다음 주 계획</h3><ul>${j.next.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section>`;
+  if(o.note)h+=`<section class="sec"><h3>수정 요청 반영</h3><p>${esc(o.note)}</p></section>`;
+  return h+`<footer>사용한 내부 데이터: ${src.map(id=>esc(dataById(id).name)).join(', ')} · 화면의 수치와 업무 내용은 예시입니다</footer>`;
+}
+function monthlyDoc(o){
+  const mIdx=o.period==='9'?8:9,ms=SALES.m.slice(0,mIdx+1),ts=SALES.t.slice(0,mIdx+1);
+  const cur=ms[mIdx],tg=ts[mIdx],cum=ms.reduce((a,b)=>a+b,0),cumT=ts.reduce((a,b)=>a+b,0),mx=Math.max(...ms,...ts);
+  const rmx=Math.max(...SALES.regM.map(r=>r[1]));
+  return `<header><span class="tag int">Studio · ${esc(o.model||'사내 LLM')} · 내부 데이터</span><h2>2026년 ${mIdx+1}월 실적 보고서 · ${esc(o.dept)}</h2><span class="sample">작성 ${o.at} · ${esc(o.by)}</span></header>
+  <div class="grid sm"><div class="tile"><span class="k">${mIdx+1}월 매출</span><span class="v">${cur}억</span><span class="d ${cur>=tg?'up':'down'}">목표 ${tg}억 · ${(cur/tg*100).toFixed(1)}%</span></div><div class="tile"><span class="k">누적 매출</span><span class="v">${cum}억</span><span class="d ${cum>=cumT?'up':'down'}">누적 목표 대비 ${(cum/cumT*100).toFixed(1)}%</span></div><div class="tile"><span class="k">전월 대비</span><span class="v">${sign(pct(cur,ms[mIdx-1]))}</span></div></div>
+  <section class="sec"><h3>월별 매출과 목표</h3><div class="legend"><span><i style="background:var(--accent)"></i>매출</span><span><i style="background:var(--line-strong)"></i>목표</span></div>
+  <div class="vbars">${ms.map((v,i)=>`<div class="col"><div class="pair"><i class="a" style="height:${v/mx*150}px" title="${i+1}월 매출 ${v}억"></i><i class="t" style="height:${ts[i]/mx*150}px" title="${i+1}월 목표 ${ts[i]}억"></i></div><span>${i+1}월</span></div>`).join('')}</div></section>
+  <section class="sec"><h3>지역별 누적 매출</h3><div class="card hbars">${SALES.regM.map(r=>`<div class="hbar"><span>${r[0]}</span><span class="track st"><i style="width:${r[1]/rmx*100}%"></i></span><span class="v">${r[1]}억</span></div>`).join('')}</div></section>
+  ${o.sources.includes('jira')?`<section class="sec"><h3>이번 달 주요 업무</h3><ul>${JIRA[o.dept].done.slice(0,3).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section>`:''}
+  ${o.note?`<section class="sec"><h3>수정 요청 반영</h3><p>${esc(o.note)}</p></section>`:''}
+  <footer>사용한 내부 데이터: ${o.sources.map(id=>esc(dataById(id).name)).join(', ')} · 수치는 예시입니다</footer>`;
+}
+function dashDoc(o){
+  const s=SALES.week.this,rmx=Math.max(...SALES.regM.map(r=>r[1]));const cum=SALES.m.reduce((a,b)=>a+b,0),cumT=SALES.t.reduce((a,b)=>a+b,0);
+  return `<header><span class="tag int">Studio · ${esc(o.model||'사내 LLM')} · 내부 데이터</span><h2>${esc(o.dept)} KPI 대시보드</h2><span class="sample">갱신 ${o.at}</span></header>
+  <div class="grid sm"><div class="tile"><span class="k">연 누적 매출</span><span class="v">${cum}억</span><span class="d ${cum>=cumT?'up':'down'}">목표 대비 ${(cum/cumT*100).toFixed(1)}%</span></div><div class="tile"><span class="k">이번 주 매출</span><span class="v">${s.v}억</span><span class="d up">전주 대비 ${sign(pct(s.v,s.p))}</span></div><div class="tile"><span class="k">신규 계약 (주)</span><span class="v">${s.deals}건</span></div>${o.sources.includes('jira')?`<div class="tile"><span class="k">완료 업무 (주)</span><span class="v">${JIRA[o.dept].done.length}건</span></div>`:''}${o.sources.includes('facility')?`<div class="tile"><span class="k">설비 이상 (주)</span><span class="v" style="color:var(--bad)">3건</span></div>`:''}</div>
+  <div class="split even"><section class="sec"><h3>지역별 누적 매출</h3><div class="card hbars">${SALES.regM.map(r=>`<div class="hbar"><span>${r[0]}</span><span class="track st"><i style="width:${r[1]/rmx*100}%"></i></span><span class="v">${r[1]}억</span></div>`).join('')}</div></section>
+  <section class="sec"><h3>제품별 매출 (누적)</h3><div class="tbl"><table><thead><tr><th>제품</th><th class="num">매출(억)</th><th class="num">비중</th></tr></thead><tbody>${SALES.prod.map(p=>`<tr><td>${p[0]}</td><td class="num">${p[1]}</td><td class="num">${p[2]}</td></tr>`).join('')}</tbody></table></div></section></div>
+  <footer>사용한 내부 데이터: ${o.sources.map(id=>esc(dataById(id).name)).join(', ')} · 수치는 예시입니다</footer>`;
+}
+function docBody(o){
+  const body=o.type==='weekly'?weeklyDoc(o):o.type==='monthly'?monthlyDoc(o):dashDoc(o);
+  const xl=(o.skills||[]).includes('k-excel')?`<div class="row" style="justify-content:flex-end"><button class="btn sm" data-act="xlDemo">엑셀 내보내기</button></div>`:'';
+  return `<article class="doc" id="studio-doc">${xl}${body}</article>`;
+}
+function defaultStudio(type){
+  const p=PRESETS[type],u=U();
+  return {id:'sample-'+type,type,prompt:p.prompt,model:'Qwen3-32B',skills:p.skills.slice(),sources:p.data.slice(),dept:u&&DEPTS.includes(u.dept)?u.dept:'영업기획팀',period:type==='monthly'?'10':'this',note:'',at:stamp(new Date()),by:u?u.name:'예시',rev:1,turns:[p.prompt]};
+}
+const TITLES={weekly:'주간보고',monthly:'월간 실적 보고서',dashboard:'KPI 대시보드'};
+function genFiles(g){
+  const f=['app/page.tsx','components/KpiCards.tsx'];
+  if(g.type!=='weekly'||g.sources.includes('sales'))f.push('components/RegionBars.tsx');
+  if(g.type==='monthly')f.push('components/MonthlyBars.tsx');
+  if(g.type==='weekly')f.push('components/TaskList.tsx');
+  if(g.skills.includes('k-excel'))f.push('components/ExcelButton.tsx');
+  return f.concat(['lib/vdap-data.ts','package.json']);
+}
+function codeFor(g){
+  const used=g.skills.map(id=>skillById(id)).filter(Boolean).map(k=>k.file).join(', ');
+  const first=g.sources[0]||'sales';
+  return `// app/page.tsx · ${g.model} 생성 초안 v${g.rev}
+// 적용 스킬: ${used}
+import { query } from '@/lib/vdap-data'; // 접속 정보 없이 VDAP 데이터 경로로 조회
+import KpiCards from '@/components/KpiCards';
+${g.type==='weekly'?"import TaskList from '@/components/TaskList';\n":''}${g.type==='monthly'?"import MonthlyBars from '@/components/MonthlyBars';\n":''}${g.sources.includes('sales')?"import RegionBars from '@/components/RegionBars';\n":''}${g.skills.includes('k-excel')?"import ExcelButton from '@/components/ExcelButton';\n":''}
+export const dynamic = 'force-dynamic';
+
+export default async function Page() {
+${g.sources.map(id=>`  const ${id} = await query('${id}', { dept: '${g.dept}', period: '${g.period}' });`).join('\n')}
+  return (
+    <main className="report">
+      <h1>${g.dept} ${TITLES[g.type]}</h1>${g.skills.includes('k-excel')?`\n      <ExcelButton rows={${first}.rows} filename="${g.type}-${ymd(new Date())}.xlsx" />`:''}
+      <KpiCards data={${first}} />${g.sources.includes('sales')?'\n      <RegionBars data={sales.byRegion} unit="억원" />':''}${g.type==='monthly'?'\n      <MonthlyBars data={sales.byMonth} target={sales.target} />':''}${g.type==='weekly'&&g.sources.includes('jira')?'\n      <TaskList done={jira.done} doing={jira.doing} next={jira.next} />':''}
+    </main>
+  );
+}`;
+}
+function skillPicker(){
+  const list=S.skills.filter(k=>k.on);
+  return `<div class="picker" role="group" aria-label="스킬 선택">${list.map(k=>`<label><input type="checkbox" data-change="stSkill" value="${k.id}" ${S.st.skills.includes(k.id)?'checked':''}><b>${esc(k.name)} <span class="mono" style="display:inline;grid-column:auto">${esc(k.file)}</span></b><span>${esc(k.desc)}</span></label>`).join('')}</div>`;
+}
+function composer(){
+  const c=S.st;
+  const chips=c.skills.map(id=>{const k=skillById(id);if(!k)return '';return `<span class="sk-chip ${k.kind==='가이드'?'guide':''}"><em>${k.kind}</em>${esc(k.file)}<button type="button" data-act="stSkillOff" data-id="${id}" aria-label="${esc(k.name)} 빼기">×</button></span>`}).join('');
+  return `<form class="composer" data-form="gen" novalidate>
+    <div class="cmp-top"><span class="llm">사내 LLM</span>
+      <select class="inp sel" data-change="stModel" aria-label="모델">${MODELS.map(m=>`<option value="${m[0]}" ${c.model===m[0]?'selected':''}>${m[0]} · ${m[1]}</option>`).join('')}</select>
+      <select class="inp sel" data-change="stOut" aria-label="결과물 형태">${[['auto','형태 자동 판단'],['weekly','주간보고'],['monthly','월간 실적 보고서'],['dashboard','KPI 대시보드']].map(([k,l])=>`<option value="${k}" ${c.out===k?'selected':''}>${l}</option>`).join('')}</select>
+      <select class="inp sel" data-change="stDept" aria-label="부서">${DEPTS.map(d=>`<option ${c.dept===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    <textarea id="st-prompt" class="prompt" placeholder="만들 것을 문장으로 적어 주세요. 예: 이번 주 영업기획팀 주간보고, 지역별 매출은 막대 차트로" aria-label="요청 내용">${esc(c.prompt)}</textarea>
+    <div class="cmp-row"><span class="lb">스킬</span><div class="row">${chips||'<span class="muted">고른 스킬이 없습니다</span>'}<button type="button" class="btn sm" data-act="stPicker" aria-expanded="${!!c.pick}">${c.pick?'닫기':'+ 스킬'}</button></div></div>
+    ${c.pick?skillPicker():''}
+    <div class="cmp-row"><span class="lb">데이터</span><div class="chips">${S.int.map(d=>{const ok=d.access==='허용';return `<button type="button" data-act="stData" data-id="${d.id}" class="${c.data.includes(d.id)?'on':''}" ${ok?'':'disabled'}>${esc(d.name)}${ok?'':' · '+d.access}</button>`}).join('')}</div></div>
+    <div class="row sb" style="border-top:1px solid var(--line);padding-top:12px"><div class="chips">${QUICK.map(q=>`<button type="button" data-act="stQuick" data-v="${esc(q)}">${esc(q)}</button>`).join('')}</div><button class="btn st" id="st-go">만들기</button></div>
+    <div id="st-prog" class="steps" aria-live="polite"></div>
+  </form>`;
+}
+function cfgPanel(){
+  const c=S.st,ks=c.skills.map(skillById).filter(Boolean);
+  return `<aside class="card" style="gap:14px"><h3>이번 요청에 들어가는 것</h3>
+    <dl class="kv"><dt>모델</dt><dd>${esc(c.model)} (사내)</dd><dt>형태</dt><dd>${c.out==='auto'?'요청 문장으로 판단':TITLES[c.out]}</dd><dt>부서</dt><dd>${esc(c.dept)}</dd></dl>
+    <div class="sec" style="gap:6px"><b>스킬 ${ks.length}개</b>${ks.map(k=>`<div><span class="mono" style="font-size:12.5px">${esc(k.file)}</span><div class="help">${esc(k.desc)}</div></div>`).join('')||'<span class="muted">없음</span>'}</div>
+    <div class="sec" style="gap:6px"><b>내부 데이터</b><div class="meta">${c.data.map(dataTag).join('')||'<span class="muted">없음</span>'}</div></div>
+    <p class="help">사내 LLM 연결 전이라 데모 생성기로 만듭니다. 연결하면 고른 모델에 요청 문장, 스킬 지시문, 데이터 열 정보가 함께 전달됩니다.</p>
+    <a class="btn sm" href="#admin-skills" style="justify-self:start">스킬 관리</a></aside>`;
+}
+function resultView(g){
+  const tab=S.resTab||'preview',ks=g.skills.map(skillById).filter(Boolean);
+  let body='';
+  if(tab==='preview')body=docBody(g);
+  else if(tab==='code')body=`<div class="row sb"><div class="meta">${genFiles(g).map(f=>`<span class="tag mono">${f}</span>`).join('')}</div><button class="btn sm" data-act="copyCode">코드 복사</button></div><pre class="code" id="gen-code">${esc(codeFor(g))}</pre>`;
+  else body=`<div class="list">${ks.map(k=>`<div class="li"><div class="main"><b>${esc(k.name)}</b><span class="mono sample">${esc(k.file)}</span><ul class="checks">${k.checks.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div><span class="badge b-ok">통과</span></div>`).join('')}</div><p class="sample">데모 점검 결과입니다. 사내 LLM 연결 후에는 생성 코드를 스킬의 점검 항목으로 검사합니다.</p>`;
+  return `<section class="sec" id="gen-result"><div class="sec-h"><h2>결과 · ${TITLES[g.type]} <span class="sample" style="font-weight:400">v${g.rev} · ${g.at} · ${esc(g.model)}</span></h2><button class="btn st" data-act="studioSave" data-id="${g.id}">VDAP 앱으로 배포 (승인 요청)</button></div>
+    <div class="turns">${g.turns.map((t,i)=>`<div class="turn"><b>${i?'수정':'요청'}</b> ${esc(t)}</div>`).join('')}</div>
+    <div class="rtabs" role="tablist">${[['preview','미리보기'],['code','코드'],['check',`스킬 점검 ${ks.length}`]].map(([k,l])=>`<button role="tab" data-act="resTab" data-v="${k}" class="${tab===k?'on':''}" aria-selected="${tab===k}">${l}</button>`).join('')}</div>
+    ${body}
+    <form class="inline" data-form="refine" style="grid-template-columns:minmax(0,1fr) auto"><input id="rf-text" class="inp" placeholder="고칠 점을 적어 주세요. 예: 엑셀 내보내기 추가, 이슈를 맨 앞으로" aria-label="수정 요청" required><button class="btn st">수정 요청</button></form>
+  </section>`;
+}
+V['studio-new']=()=>{
+  let h=ph('Studio','사내 LLM에 요청 문장과 스킬을 넘겨 회사 내부 데이터로 보고서·대시보드 초안을 빠르게 만듭니다.');
+  if(!S.user)return h+`<p class="note st">외부 데이터와 외부 LLM 결과물은 <a href="#catalog-new">앱 카탈로그</a>에 올립니다.</p>`+needLogin('Studio를 쓰려면 로그인해 주세요');
+  if(!canMake())return h+empty('이용자 계정은 Studio로 만들 수 없습니다. 만들어진 예시는 빠른 시작 메뉴에서 볼 수 있습니다',`<a class="btn" href="#studio-weekly">주간보고 예시</a>`);
+  h+=`<div class="studio-grid">${composer()}${cfgPanel()}</div>`;
+  const g=S.cur&&S.gens.find(x=>x.id===S.cur);
+  if(g)h+=resultView(g);
+  return h;
+};
+function studioResultView(type){
+  const own=S.gens.filter(o=>o.type===type);
+  const pick=(S.studioView&&own.find(o=>o.id===S.studioView))||own[0]||defaultStudio(type);
+  const p=PRESETS[type];
+  return ph(TITLES[type],own.length?`최근 결과물 ${own.length}건`:'아직 만든 결과물이 없어 프리셋 예시를 보여 줍니다.',`<button class="btn st" data-act="studioPreset" data-v="${type}">이 프리셋으로 만들기</button>`)
+    +`<div class="card"><b>프리셋</b><p>${esc(p.prompt)}</p><div class="meta">${p.skills.map(id=>`<span class="tag int mono">${esc(skillById(id)?skillById(id).file:id)}</span>`).join('')}${p.data.map(dataTag).join('')}</div></div>`
+    +(own.length>1?`<div class="chips">${own.map(o=>`<button data-act="studioPick" data-id="${o.id}" class="${o.id===pick.id?'on':''}">${esc(o.dept)} · ${o.at}</button>`).join('')}</div>`:'')
+    +docBody(pick)
+    +`<div class="row">${own.length?`<button class="btn" data-act="genOpen" data-id="${pick.id}">Studio에서 이어서 수정</button>`:''}<button class="btn st" data-act="studioSave" data-id="${pick.id}">VDAP 앱으로 배포 (승인 요청)</button></div>`;
+}
+V['studio-weekly']=()=>studioResultView('weekly');
+V['studio-monthly']=()=>studioResultView('monthly');
+V['studio-dashboard']=()=>studioResultView('dashboard');
+V['studio-history']=()=>ph('생성 이력','Studio에서 사내 LLM으로 만든 초안입니다.')+(S.gens.length?`<div class="tbl"><table class="stack"><thead><tr><th>요청</th><th>형태</th><th>모델</th><th class="num">스킬</th><th>작성</th><th></th></tr></thead><tbody>${S.gens.map(g=>`<tr><td>${esc(g.prompt.length>40?g.prompt.slice(0,40)+'…':g.prompt)}</td><td>${TITLES[g.type]}</td><td class="mono">${esc(g.model)}</td><td class="num">${g.skills.length}</td><td>${g.at} · v${g.rev}</td><td><button class="btn sm" data-act="genOpen" data-id="${g.id}">열기</button></td></tr>`).join('')}</tbody></table></div>`:empty('아직 만든 초안이 없습니다',`<a class="btn st" href="#studio-new">Studio로 가기</a>`));
+function runSteps(done,fast){
+  const prog=$('#st-prog'),go=$('#st-go');if(go)go.disabled=true;
+  let i=0;const draw=()=>{if(prog)prog.innerHTML=GEN_STEPS.map((s,j)=>`<span class="${j<i?'done':j===i?'run':''}">${s}</span>`).join('')};
+  draw();const t=setInterval(()=>{i++;draw();if(i>=GEN_STEPS.length){clearInterval(t);done()}},fast?220:380);
+}
+
+/* ---------- 템플릿 ---------- */
+const TPLS=[
+  {id:'t1',name:'주간보고',use:'report',to:'studio',st:'weekly',data:'int',desc:'주요 지표, 완료·진행 업무, 회의 결정, 다음 주 계획'},
+  {id:'t2',name:'월간 실적 보고서',use:'report',to:'studio',st:'monthly',data:'int',desc:'월별 매출과 목표, 지역별 누적, 주요 업무'},
+  {id:'t3',name:'KPI 대시보드',use:'dash',to:'studio',st:'dashboard',data:'int',desc:'누적 매출, 주간 지표, 지역·제품별 비중'},
+  {id:'t4',name:'공공데이터 지도 탐색',use:'dash',to:'catalog',data:'ext',desc:'공공데이터 API + 지도·지역 필터 Next.js 프로젝트'},
+  {id:'t5',name:'통계 비교 차트',use:'dash',to:'catalog',data:'ext',desc:'KOSIS 통계를 시도별로 비교하는 차트 화면'},
+  {id:'t6',name:'점검 입력 양식',use:'tool',to:'catalog',data:'ext',desc:'항목별 체크, 사진 첨부, 이상 항목 표시'},
+  {id:'t7',name:'승인 요청 업무 도구',use:'tool',to:'catalog',data:'ext',desc:'요청 등록, 승인자 지정, 상태 관리'},
+  {id:'t8',name:'FAQ·매뉴얼 안내',use:'report',to:'catalog',data:'ext',desc:'검색되는 FAQ와 단계별 매뉴얼 화면'}
+];
+const USE={report:'보고서',dash:'대시보드',tool:'입력 양식·업무 도구'};
+function tplGrid(use){
+  const list=TPLS.filter(t=>!use||t.use===use);
+  return `<div class="grid">${list.map(t=>`<div class="card"><div class="row sb"><b>${t.name}</b><span class="tag ${t.data}">${t.to==='studio'?'Studio · 내부':'카탈로그 · 외부 LLM'}</span></div><p class="muted">${t.desc}</p><div class="row sb"><span class="tag">${USE[t.use]}</span><button class="btn sm ${t.to==='studio'?'st':'pri'}" data-act="useTpl" data-id="${t.id}">이 템플릿으로 시작</button></div></div>`).join('')}</div>`;
+}
+V['templates-all']=()=>ph('템플릿','Studio 템플릿은 내부 데이터로 바로 만들고, 카탈로그 템플릿은 외부 LLM 작업용 시작점입니다.')+tplGrid('');
+V['templates-report']=()=>ph('보고서 템플릿')+tplGrid('report');
+V['templates-dash']=()=>ph('대시보드 템플릿')+tplGrid('dash');
+V['templates-tool']=()=>ph('입력 양식·업무 도구 템플릿')+tplGrid('tool');
+V['templates-guide']=()=>ph('개발 가이드 파일','외부 LLM으로 만들 때 AI 도구에 함께 주는 파일입니다.')+`<div class="tbl"><table class="stack"><thead><tr><th>파일</th><th>용도</th><th>기준</th><th></th></tr></thead><tbody>
+  <tr><td class="mono">report-dev-guide-v2.md</td><td>VDAP 규칙에 맞는 프로젝트 구조·빌드 규칙</td><td>Next.js</td><td><a class="btn sm" href="${GUIDE}" target="_blank" rel="noopener">원문</a></td></tr>
+  <tr><td class="mono">git-token-guide</td><td>비공개 GitHub 저장소 연결</td><td>GitHub</td><td><a class="btn sm" href="${GITGUIDE}" target="_blank" rel="noopener">원문</a></td></tr></tbody></table></div>
+  <section class="sec"><div class="sec-h"><h2>요청 예시</h2><button class="btn sm" data-act="copy" data-text="${esc(PROMPT)}">복사</button></div><pre class="code">${esc(PROMPT)}</pre></section>`;
+
+/* ---------- 데이터 ---------- */
+const usedBy=id=>S.apps.filter(a=>a.data.includes(id));
+V['data-ext']=()=>ph('외부 데이터','앱 카탈로그(LinkaiReport)에서 외부 LLM으로 만든 보고서가 쓰는 데이터입니다.',`<a class="btn" href="#data-connect">+ 외부 데이터 추가</a>`)
+  +`<p class="note ext">외부 데이터는 보고서 코드가 직접 호출합니다. 인증키는 코드에 넣지 않고 관리 › 환경변수에 저장합니다. Studio에서는 쓰지 않습니다.</p>
+  <div class="tbl"><table class="stack"><thead><tr><th>데이터</th><th>제공처</th><th>연결 방식</th><th>환경변수</th><th>갱신</th><th>사용 보고서</th></tr></thead><tbody>${S.ext.map(d=>`<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.org)}</td><td>${esc(d.how)}</td><td class="mono">${esc(d.envKey)}</td><td>${esc(d.cycle)}</td><td>${usedBy(d.id).map(a=>`<span class="tag">${esc(a.name)}</span>`).join(' ')||'<span class="muted">없음</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+V['data-int']=()=>ph('내부 데이터','Studio가 주간보고·실적 보고서·대시보드를 만들 때 쓰는 회사 데이터입니다.',`<a class="btn" href="#data-connect">+ 내부 연결 추가</a>`)
+  +`<p class="note st">내부 데이터는 데이터 담당 부서가 허용한 연결만 쓸 수 있습니다. 권한이 없으면 사용 요청을 보내고 관리자가 승인합니다.</p>
+  <div class="tbl"><table class="stack"><thead><tr><th>데이터</th><th>종류</th><th>담당</th><th>주요 항목</th><th>내 권한</th><th></th></tr></thead><tbody>${S.int.map(d=>`<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.kind)}</td><td>${esc(d.owner)}</td><td>${esc(d.tables)}</td><td>${d.access==='허용'?'<span class="badge b-ok">허용</span>':d.access==='승인 대기'?'<span class="badge b-busy">승인 대기</span>':'<span class="badge b-idle">요청 필요</span>'}</td><td>${d.access==='허용'?`<a class="btn sm st" href="#studio-new">Studio에서 쓰기</a>`:d.access==='요청 필요'?`<button class="btn sm" data-act="reqData" data-id="${d.id}">사용 요청</button>`:''}</td></tr>`).join('')}</tbody></table></div>`;
+V['data-connect']=()=>{
+  if(!S.user)return ph('연결 추가')+needLogin();
+  if(!canMake())return ph('연결 추가')+empty('이용자 계정은 연결을 추가할 수 없습니다');
+  return ph('연결 추가','외부 데이터는 등록 즉시 목록에 오르고, 내부 연결은 관리자 승인 후 Studio에서 쓸 수 있습니다.')+`<form class="card form" data-form="conn" novalidate>
+  <div class="field"><span class="lb">구분</span><div class="opts"><label><input type="radio" name="cn-kind" value="ext" checked> 외부 데이터 (카탈로그 보고서용)</label><label><input type="radio" name="cn-kind" value="int"> 내부 데이터 (Studio용)</label></div></div>
+  <div class="field"><label for="cn-name">이름</label><input id="cn-name" class="inp" placeholder="예: 조달청 나라장터 입찰공고"><span class="err" id="cn-err"></span></div>
+  <div class="split even"><div class="field"><label for="cn-type">종류</label><select id="cn-type" class="inp">${['REST API','OpenAPI','PostgreSQL','MySQL','Oracle','CSV 파일'].map(x=>`<option>${x}</option>`).join('')}</select></div>
+  <div class="field"><label for="cn-org">제공처·담당 부서</label><input id="cn-org" class="inp" placeholder="예: 조달청 · 공공데이터포털"></div></div>
+  <div class="field"><label for="cn-env">인증키 환경변수 이름</label><input id="cn-env" class="inp mono" placeholder="예: G2B_API_KEY"><span class="help">값은 앱별 관리 › 환경변수에서 넣습니다</span></div>
+  <button class="btn pri" style="justify-self:start">추가</button></form>`;
+};
+V['data-usage']=()=>ph('사용 현황','앱별로 어떤 외부·내부 데이터를 쓰는지 봅니다.')+`<div class="tbl"><table class="stack"><thead><tr><th>앱</th><th>만든 곳</th><th>외부 데이터</th><th>내부 데이터</th></tr></thead><tbody>${catalogVisible().map(a=>`<tr><td>${esc(a.name)}</td><td>${a.src==='Studio'?'<span class="tag int">Studio</span>':'<span class="tag ext">카탈로그 · '+esc(a.llm)+'</span>'}</td><td>${a.data.filter(isExt).map(dataTag).join(' ')||'<span class="muted">-</span>'}</td><td>${a.data.filter(id=>!isExt(id)).map(dataTag).join(' ')||'<span class="muted">-</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+
+/* ---------- 관리 ---------- */
+function appPicker(){
+  const list=manageable();
+  if(!list.length)return '';
+  if(!list.some(a=>a.id===S.appSel))S.appSel=list[0].id;
+  return `<div class="row"><label for="app-sel" class="lb" style="font-weight:600">앱</label><select id="app-sel" class="inp" style="max-width:320px" data-change="appsel">${list.map(a=>`<option value="${a.id}" ${a.id===S.appSel?'selected':''}>${esc(a.name)}</option>`).join('')}</select>${badge(app(S.appSel).status)}</div>`;
+}
+function adminGuard(title,sub){
+  if(!S.user)return ph(title,sub)+needLogin('관리 화면은 로그인 후 볼 수 있습니다');
+  if(!canMake()&&!['pending','rejected','approved'].includes(R.sub))return ph(title,sub)+empty('이용자 계정은 관리할 앱이 없습니다');
+  if(!manageable().length&&!['pending','rejected','approved','more','skills'].includes(R.sub))return ph(title,sub)+empty('관리할 앱이 없습니다',`<a class="btn pri" href="#catalog-new">+ 새 보고서</a>`);
+  return null;
+}
+function apprTable(status){
+  const list=visibleApprovals().filter(r=>r.status===status);
+  if(!list.length)return empty(status==='대기'?'처리할 승인 요청이 없습니다':'해당 내역이 없습니다');
+  return `<div class="list">${list.map(r=>{const a=app(r.appId);const d=r.dataId?dataById(r.dataId):null;
+    let act='';
+    if(status==='대기')act=isAdmin()?`<button class="btn sm pri" data-act="approve" data-id="${r.id}">승인</button><button class="btn sm danger" data-act="reject" data-id="${r.id}">반려</button>`:`<button class="btn sm" data-act="cancelReq" data-id="${r.id}">요청 취소</button>`;
+    if(status==='반려'&&!isAdmin())act=`<button class="btn sm" data-act="reRequest" data-id="${r.id}">수정 후 재요청</button>`;
+    return `<div class="li"><div class="main"><span class="row"><span class="tag">${r.kind}</span><b>${esc(a?a.name:d?d.name:'삭제된 앱')}</b>${d?dataTag(r.dataId):''}${r.days?`<span class="tag pub">${r.days}일</span>`:''}</span>
+    <span class="muted">사유: ${esc(r.reason)}</span>${r.rejectReason?`<span class="err">반려 사유: ${esc(r.rejectReason)}</span>`:''}
+    <span class="sample">${esc(r.by)} · 요청 ${r.date}${r.decidedBy?` · ${esc(r.decidedBy)} ${r.status} ${r.decidedAt}`:''}</span></div><span class="row">${act}</span></div>`}).join('')}</div>`;
+}
+V['admin-pending']=()=>adminGuard('승인 대기')||ph('승인 대기',isAdmin()?'전체 요청을 승인하거나 사유를 적어 반려합니다.':'내가 보낸 요청입니다. 승인·반려는 관리자가 처리합니다.')+apprTable('대기');
+V['admin-rejected']=()=>adminGuard('반려')||ph('반려','반려 사유를 확인하고 수정 후 다시 요청합니다.')+apprTable('반려');
+V['admin-approved']=()=>adminGuard('승인 완료')||ph('승인 완료')+apprTable('승인');
+V['admin-urls']=()=>{
+  const g=adminGuard('공유 중인 URL');if(g)return g;
+  const ids=manageable().map(a=>a.id);const list=S.urls.filter(u=>ids.includes(u.appId));
+  return ph('공유 중인 URL','Private URL은 로그인·권한 사용자만, Public URL은 로그인 없이 만료일까지 열립니다.',`<button class="btn pri" data-act="pubReq">+ Public URL 요청</button>`)
+  +`<div class="tbl"><table class="stack"><thead><tr><th>앱</th><th>유형</th><th>주소</th><th>만료일</th><th class="num">열람</th><th>상태</th><th></th></tr></thead><tbody>${list.map(u=>{const st=urlState(u);return `<tr><td>${esc(app(u.appId).name)}</td><td><span class="tag ${u.type==='Public'?'pub':''}">${u.type}</span></td><td class="url">${esc(u.url)}</td><td>${u.expires||'-'}</td><td class="num">${u.views}</td><td><span class="badge ${st[1]}">${st[0]}</span></td><td><button class="btn sm" data-act="copy" data-text="${esc(u.url)}">복사</button>${u.type==='Public'?`<button class="btn sm" data-act="extend" data-id="${u.id}">30일 연장</button><button class="btn sm ${u.blocked?'':'danger'}" data-act="block" data-id="${u.id}">${u.blocked?'차단 해제':'차단'}</button>`:''}</td></tr>`}).join('')}</tbody></table></div>`;
+};
+V['admin-perm']=()=>{
+  const g=adminGuard('사용자·권한');if(g)return g;
+  const picker=appPicker();const a=app(S.appSel);
+  const list=S.perm[a.id]||(S.perm[a.id]=[{who:a.owner,type:'사용자',role:'관리'}]);
+  return ph('사용자·권한','앱마다 열람·수정·관리 역할을 사용자나 그룹에 줍니다.')+picker
+  +`<div class="tbl"><table class="stack"><thead><tr><th>대상</th><th>유형</th><th>역할</th><th></th></tr></thead><tbody>${list.map((p,i)=>`<tr><td>${esc(p.who)}</td><td>${p.type}</td><td><select class="inp" style="width:auto;min-height:36px" data-change="role" data-i="${i}" aria-label="${esc(p.who)} 역할">${['열람','수정','관리'].map(r=>`<option ${r===p.role?'selected':''}>${r}</option>`).join('')}</select></td><td>${p.who===a.owner?'<span class="sample">소유자</span>':`<button class="btn sm ghost" data-act="delPerm" data-i="${i}">제거</button>`}</td></tr>`).join('')}</tbody></table></div>
+  <form class="inline" data-form="perm"><input id="pm-who" class="inp" placeholder="사용자 이름 또는 그룹 (예: 생산팀)" aria-label="대상" required><select id="pm-type" class="inp" aria-label="유형"><option>사용자</option><option>그룹</option></select><button class="btn pri">추가</button></form>`;
+};
+V['admin-env']=()=>{
+  const g=adminGuard('환경변수');if(g)return g;
+  const picker=appPicker();const a=app(S.appSel);const list=S.env[a.id]||(S.env[a.id]=[]);
+  return ph('환경변수','DB 접속 정보와 외부 API 인증키를 앱별로 저장합니다. 바꾼 값은 다음 배포부터 적용됩니다.')+picker
+  +(list.length?`<div class="tbl"><table class="stack"><thead><tr><th>이름</th><th>값</th><th></th></tr></thead><tbody>${list.map((e,i)=>`<tr><td class="mono">${esc(e.k)}</td><td class="mono">${e.secret&&!e.show?'••••••••':esc(e.v)}</td><td>${e.secret?`<button class="btn sm" data-act="showEnv" data-i="${i}">${e.show?'가리기':'보기'}</button>`:''}<button class="btn sm ghost" data-act="delEnv" data-i="${i}">삭제</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">등록된 환경변수가 없습니다.</p>')
+  +`<form class="card form" data-form="env" novalidate><div class="split even"><div class="field"><label for="ev-k">이름</label><input id="ev-k" class="inp mono" placeholder="DATA_GO_KR_API_KEY"></div><div class="field"><label for="ev-v">값</label><input id="ev-v" class="inp mono" type="password" autocomplete="off"></div></div><label class="row"><input type="checkbox" id="ev-s" checked> 비밀 값으로 가리기</label><span class="err" id="ev-err"></span><button class="btn pri" style="justify-self:start">추가</button></form>`;
+};
+V['admin-deploy']=()=>{
+  const g=adminGuard('배포 이력');if(g)return g;
+  const picker=appPicker();const a=app(S.appSel);const list=S.deploys.filter(d=>d.appId===a.id);
+  return ph('배포 이력','버전별 결과를 보고 최신 소스로 다시 배포합니다.',`<button class="btn pri" data-act="redeploy" data-id="${a.id}">${a.src==='GitHub'?'최신 커밋으로 배포':'다시 빌드'}</button>`)+picker
+  +(list.length?`<div class="tbl"><table class="stack"><thead><tr><th>버전</th><th>일시</th><th>소스</th><th>메모</th><th>결과</th><th>배포자</th></tr></thead><tbody>${list.map(d=>`<tr><td>v${d.ver}</td><td>${d.at}</td><td class="mono">${esc(d.src)}</td><td>${esc(d.note)}</td><td>${d.result==='성공'?'<span class="badge b-ok">성공</span>':'<span class="badge b-bad">실패</span>'}</td><td>${esc(d.by)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">배포 이력이 없습니다.</p>');
+};
+V['admin-settings']=()=>{
+  const g=adminGuard('앱 설정');if(g)return g;
+  const picker=appPicker();const a=app(S.appSel);
+  return ph('앱 설정','이름·주소·분류와 절전 정책을 바꿉니다.')+picker+`<form class="card form" data-form="settings" novalidate>
+  <div class="field"><label for="se-name">앱 이름</label><input id="se-name" class="inp" value="${esc(a.name)}"></div>
+  <div class="field"><label for="se-slug">주소 이름</label><input id="se-slug" class="inp mono" value="${esc(a.slug)}"><span class="help">https://${DOMAIN}/r/<b>${esc(a.slug)}</b> · 영문 소문자·숫자·하이픈</span><span class="err" id="se-err"></span></div>
+  <div class="split even"><div class="field"><label for="se-cat">카테고리</label><select id="se-cat" class="inp">${CATS.map(c=>`<option ${c===a.cat?'selected':''}>${c}</option>`).join('')}</select></div>
+  <div class="field"><label for="se-sleep">절전 정책</label><select id="se-sleep" class="inp">${['10분 미사용 시 절전','30분 미사용 시 절전','절전 안 함'].map(c=>`<option ${c===(a.sleep||'30분 미사용 시 절전')?'selected':''}>${c}</option>`).join('')}</select></div></div>
+  <div class="field"><label for="se-desc">설명</label><input id="se-desc" class="inp" value="${esc(a.desc)}"></div>
+  <div class="row sb"><button class="btn pri">저장</button><button type="button" class="btn danger" data-act="delApp" data-id="${a.id}">앱 삭제</button></div></form>
+  <section class="sec"><h2>데모 데이터</h2><div class="row"><button class="btn" data-act="reset">처음 상태로 되돌리기</button><span class="help">이 브라우저에 저장된 메모·요청·앱 변경을 모두 지웁니다</span></div></section>`;
+};
+function addSkill(o){
+  const body=o.body||'';
+  const h=body.match(/^#\s+(.+)$/m);
+  const lines=body.split(/\r?\n/).map(x=>x.trim());
+  const desc=o.desc||lines.find(x=>x&&!x.startsWith('#')&&!x.startsWith('-')&&!x.startsWith('```'))||'설명 없음';
+  let checks=[],inCheck=false;
+  lines.forEach(x=>{if(/^##\s*(점검|체크|check)/i.test(x)){inCheck=true;return}if(/^##\s/.test(x)){inCheck=false;return}if(inCheck&&/^[-*]\s+/.test(x))checks.push(x.replace(/^[-*]\s+(\[.?\]\s*)?/,''))});
+  S.skills.push({id:uid('k'),name:o.name||(h?h[1].trim():o.file.replace(/\.md$/,'')),file:o.file,kind:'스킬',size:o.size||fsize(new Blob([body]).size),base:false,on:true,owner:U().name,updated:ymd(new Date()),uses:0,desc:desc.slice(0,80),checks:checks.slice(0,6),body});
+}
+const skillMd=k=>k.body||`# ${k.name}\n\n${k.desc}\n\n## 점검\n${k.checks.map(c=>'- '+c).join('\n')}`;
+const SK_TPL=`# 스킬 이름\n\n한 줄 설명: 이 스킬이 사내 LLM에게 시키는 일\n\n## 규칙\n- 지켜야 할 규칙 1\n- 지켜야 할 규칙 2\n\n## 점검\n- 생성 결과에서 확인할 항목 1\n- 생성 결과에서 확인할 항목 2`;
+V['admin-skills']=()=>{
+  const sub='Studio가 사내 LLM에 함께 넘기는 지시문(.md)입니다. 사용을 끄면 Studio 선택 목록에서 빠지고, 기본 적용 스킬은 새 요청에 자동으로 들어갑니다.';
+  if(!S.user)return ph('스킬 관리',sub)+needLogin();
+  if(!canMake())return ph('스킬 관리',sub)+empty('이용자 계정은 스킬을 관리할 수 없습니다');
+  const q=(S.skQ||'').trim().toLowerCase();
+  const list=S.skills.filter(k=>!q||(k.name+k.file+k.desc).toLowerCase().includes(q));
+  return ph('스킬 관리',sub,`<label class="btn" for="sk-up">+ md 올리기</label><input id="sk-up" type="file" accept=".md,.markdown,text/markdown,text/plain" hidden><button class="btn pri" data-act="skNew">${S.skForm?'작성 닫기':'새 스킬 작성'}</button>`)
+  +(S.skForm?`<form class="card form" data-form="skill" novalidate style="max-width:none"><div class="split even"><div class="field"><label for="sk-name">이름</label><input id="sk-name" class="inp" placeholder="예: 영업 보고 표준 지표"></div><div class="field"><label for="sk-file-name">파일 이름</label><input id="sk-file-name" class="inp mono" placeholder="sales-kpi.md"></div></div>
+    <div class="field"><label for="sk-desc">한 줄 설명</label><input id="sk-desc" class="inp" placeholder="Studio 선택 목록에 보이는 설명"></div>
+    <div class="field"><label for="sk-body">지시문 (Markdown)</label><textarea id="sk-body" class="inp mono" style="min-height:200px">${esc(SK_TPL)}</textarea><span class="help">## 점검 아래 목록이 생성 결과 점검 항목이 됩니다</span><span class="err" id="sk-err"></span></div>
+    <button class="btn pri" style="justify-self:start">스킬 추가</button></form>`:'')
+  +`<input id="sk-q" class="inp" style="max-width:340px" placeholder="스킬 검색" value="${esc(S.skQ||'')}" aria-label="스킬 검색">
+  <div class="tbl"><table class="stack"><thead><tr><th>스킬</th><th>종류</th><th class="num">크기</th><th class="num">사용</th><th>올린 사람</th><th>기본 적용</th><th>사용</th><th></th></tr></thead><tbody>${list.map(k=>`<tr><td><b>${esc(k.name)}</b><div class="mono sample">${esc(k.file)}</div><div class="help">${esc(k.desc)}</div></td><td><span class="tag ${k.kind==='가이드'?'pub':'int'}">${k.kind}</span></td><td class="num">${esc(k.size)}</td><td class="num">${k.uses||0}회</td><td>${esc(k.owner)} · ${k.updated}</td><td><input type="checkbox" class="sw" data-change="skBase" data-id="${k.id}" ${k.base?'checked':''} ${isAdmin()?'':'disabled'} aria-label="${esc(k.name)} 기본 적용"></td><td><input type="checkbox" class="sw" data-change="skOn" data-id="${k.id}" ${k.on?'checked':''} aria-label="${esc(k.name)} 사용"></td><td><button class="btn sm" data-act="skView" data-id="${k.id}">보기</button><button class="btn sm ghost" data-act="skDel" data-id="${k.id}">삭제</button></td></tr>`).join('')}</tbody></table></div>
+  <p class="help">기본 적용은 관리자만 바꿉니다.</p>`;
+};
+V['admin-more']=()=>{
+  if(!S.user)return ph('추가 예정 항목')+needLogin();
+  return ph('추가 예정 항목','관리 탭에 더 넣을 기능을 적어 둡니다. 목록은 이 브라우저에 저장됩니다.')+`<form class="inline" data-form="more"><input id="mo-t" class="inp" placeholder="예: 앱별 사용량·비용 리포트" aria-label="추가할 항목" required><select id="mo-p" class="inp" aria-label="우선순위"><option>높음</option><option selected>보통</option><option>낮음</option></select><button class="btn pri">추가</button></form>`
+  +(S.moreItems.length?`<div class="list">${S.moreItems.map(m=>`<div class="li"><div class="main"><b>${esc(m.t)}</b><span class="sample">${m.at} · ${esc(m.by)}</span></div><span class="row"><span class="tag">${m.p}</span><button class="btn sm ghost" data-act="delMore" data-id="${m.id}">삭제</button></span></div>`).join('')}</div>`:'<p class="muted">아직 적은 항목이 없습니다.</p>');
+};
+
+/* ---------- 모달 ---------- */
+let M=null;
+function openModal(m){M=m;renderModal()}
+function closeModal(){M=null;renderModal()}
+function renderModal(){
+  const el=$('#modal');
+  if(!M){el.innerHTML='';return}
+  let h='';
+  if(M.type==='login'){
+    h=`<h2>로그인</h2><p class="muted">데모 계정을 고르면 역할에 맞는 화면과 버튼이 열립니다.</p><div class="acct">${Object.entries(USERS).map(([k,u])=>`<button data-act="loginAs" data-v="${k}"><b>${u.name} · ${u.role}</b><span>${u.dept} · ${u.desc}</span></button>`).join('')}</div><div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">닫기</button></div>`;
+  }else if(M.type==='open'){
+    const a=app(M.id);const urls=S.urls.filter(u=>u.appId===a.id);
+    h=`<div class="row sb"><h2>${esc(a.name)}</h2>${badge(a.status)}</div><p class="muted">${esc(a.desc)}</p>
+    <dl style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px 12px;margin:0"><dt class="muted">만든 사람</dt><dd style="margin:0">${esc(a.owner)} · ${esc(a.dept)}</dd><dt class="muted">제작</dt><dd style="margin:0">${a.src} · ${esc(a.llm)} · v${a.ver} (${a.updated})</dd><dt class="muted">데이터</dt><dd style="margin:0" class="meta">${a.data.map(dataTag).join('')||'없음'}</dd><dt class="muted">열람</dt><dd style="margin:0">${a.views}회</dd></dl>
+    <div class="list">${(urls.length?urls:[{type:'Private',url:primaryUrl(a),expires:''}]).map(u=>`<div class="li"><div class="main"><span class="row"><span class="tag ${u.type==='Public'?'pub':''}">${u.type}</span>${u.expires?`<span class="sample">만료 ${u.expires}</span>`:''}</span><span class="url">${esc(u.url)}</span></div><button class="btn sm" data-act="copy" data-text="${esc(u.url)}">복사</button></div>`).join('')}</div>
+    ${a.status==='live'?'':`<p class="note warn">지금은 ${STATUS[a.status][0]} 상태라 주소가 열리지 않습니다.</p>`}
+    <p class="sample">예시 주소이므로 실제로 열리지 않습니다.</p>
+    <div class="row" style="justify-content:flex-end">${isMine(a)||isAdmin()?`<button class="btn" data-act="manage" data-id="${a.id}">관리</button>`:''}<button class="btn pri" data-act="close">닫기</button></div>`;
+  }else if(M.type==='reject'){
+    const r=S.approvals.find(x=>x.id===M.id);
+    h=`<h2>반려 사유</h2><p class="muted">${r.kind} · ${esc(app(r.appId)?app(r.appId).name:(r.dataId&&dataById(r.dataId)?dataById(r.dataId).name:''))} · ${esc(r.by)}</p><textarea id="rj-text" class="inp" placeholder="요청자가 무엇을 고치면 되는지 적어 주세요"></textarea><span class="err" id="rj-err"></span><div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">취소</button><button class="btn danger" data-act="rejectDo" data-id="${r.id}">반려</button></div>`;
+  }else if(M.type==='pubreq'){
+    const list=manageable().filter(a=>a.status==='live'||a.status==='sleep');
+    h=`<h2>Public URL 요청</h2><p class="muted">로그인 없이 여는 링크입니다. 관리자가 승인하면 발급됩니다.</p>
+    ${list.length?`<div class="field"><label for="pr-app">앱</label><select id="pr-app" class="inp">${list.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></div>
+    <div class="field"><label for="pr-days">유효기간</label><select id="pr-days" class="inp">${[7,14,30,90].map(d=>`<option value="${d}" ${d===30?'selected':''}>${d}일</option>`).join('')}</select></div>
+    <div class="field"><label for="pr-reason">사유</label><input id="pr-reason" class="inp" placeholder="예: 협력사 담당자 공유"><span class="err" id="pr-err"></span></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">취소</button><button class="btn pri" data-act="pubReqDo">요청</button></div>`:`<p>서비스 중인 앱이 없습니다.</p><div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">닫기</button></div>`}`;
+  }else if(M.type==='delApp'){
+    const a=app(M.id);
+    h=`<h2>앱 삭제</h2><p><b>${esc(a.name)}</b>과 이 앱의 URL·권한·환경변수를 지웁니다. 되돌릴 수 없습니다.</p><div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">취소</button><button class="btn danger" data-act="delAppDo" data-id="${a.id}">삭제</button></div>`;
+  }else if(M.type==='skill'){
+    const k=skillById(M.id);
+    h=`<div class="row sb"><h2>${esc(k.name)}</h2><span class="tag ${k.kind==='가이드'?'pub':'int'}">${k.kind}</span></div><p class="mono sample">${esc(k.file)} · ${esc(k.size)} · ${esc(k.owner)}</p><pre class="code" style="max-height:50vh;overflow:auto">${esc(skillMd(k))}</pre>
+    <div class="row" style="justify-content:flex-end">${canMake()&&k.on?`<button class="btn st" data-act="skUse" data-id="${k.id}">Studio 요청에 넣기</button>`:''}<button class="btn" data-act="close">닫기</button></div>`;
+  }else if(M.type==='reset'){
+    h=`<h2>처음 상태로 되돌리기</h2><p>이 브라우저에 저장된 모든 변경을 지우고 예시 데이터로 돌아갑니다.</p><div class="row" style="justify-content:flex-end"><button class="btn" data-act="close">취소</button><button class="btn danger" data-act="resetDo">되돌리기</button></div>`;
+  }
+  el.innerHTML=`<div class="scrim" data-act="scrim"><div class="modal ${M.type==='open'||M.type==='skill'?'wide':''}" role="dialog" aria-modal="true">${h}</div></div>`;
+  const f=el.querySelector('textarea,input,select,.acct button');if(f)f.focus();
+}
+
+/* ---------- 렌더 ---------- */
+function render(){
+  renderTop();renderSide();
+  const fn=V[R.tab+'-'+R.sub]||V['home-overview'];
+  $('#main').innerHTML=fn();
+  document.title=`${TABS.find(t=>t.id===R.tab).label} · Graphio VDAP`;
+}
+function applyMode(){document.documentElement.dataset.mode=S.mode==='dark'?'dark':'light'}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>{t.hidden=true},2800)}
+function copyText(text){
+  try{navigator.clipboard.writeText(text).then(()=>toast('복사했습니다'),()=>toast('복사할 수 없어요. 직접 선택해 복사해 주세요'))}catch(e){toast('복사할 수 없어요. 직접 선택해 복사해 주세요')}
+}
+function commit(){save();render()}
+
+/* ---------- 빌드 진행 ---------- */
+function startBuild(a,note){
+  a.status='building';a.progress=0;a.buildNote=note||'';delete a.log;
+  ensureTicker();
+}
+let ticker=null;
+function ensureTicker(){
+  if(ticker)return;
+  ticker=setInterval(()=>{
+    const list=S.apps.filter(a=>a.status==='building');
+    if(!list.length){clearInterval(ticker);ticker=null;return}
+    list.forEach(a=>{
+      a.progress=Math.min(100,(a.progress||0)+10);
+      if(a.progress>=100)finishBuild(a);
+    });
+    save();renderTop();renderSide();
+    const k=R.tab+'-'+R.sub;
+    if(['catalog-mine','catalog-dash','home-mine','admin-deploy','admin-urls'].includes(k))$('#main').innerHTML=V[k]();
+  },650);
+}
+function finishBuild(a){
+  delete a.progress;a.status='live';a.updated=ymd(new Date());
+  S.deploys.unshift({appId:a.id,ver:a.ver,at:stamp(new Date()),by:a.owner,result:'성공',note:a.buildNote||'배포',src:a.src==='GitHub'?`GitHub ${a.branch||'main'}@${Math.random().toString(16).slice(2,9)}`:`ZIP ${a.file||a.slug+'.zip'}`});
+  if(!S.urls.some(u=>u.appId===a.id&&u.type==='Private'))S.urls.push({id:uid('u'),appId:a.id,type:'Private',url:`https://${DOMAIN}/r/${a.slug}`,expires:'',views:0,blocked:false});
+  if(a.wantPublic){delete a.wantPublic;S.approvals.unshift({id:uid('r'),kind:'Public URL 발급',appId:a.id,by:a.owner,reason:'등록 시 Public 공개 선택',days:30,date:ymd(new Date()),status:'대기'});notify(a.owner,`${a.name} 빌드 완료. Public URL은 관리자 승인 후 발급됩니다`,'admin-pending');notify('최관리',`${a.name} Public URL 발급 요청`,'admin-pending')}
+  else notify(a.owner,`${a.name} 빌드가 끝나 Private URL이 발급되었습니다`,'catalog-mine');
+  toast(`${a.name} 빌드 완료`);
+}
+
+/* ---------- 승인 처리 ---------- */
+function decide(id,ok,reason){
+  const r=S.approvals.find(x=>x.id===id);const a=app(r.appId);
+  r.status=ok?'승인':'반려';r.decidedBy=U().name;r.decidedAt=ymd(new Date());if(!ok)r.rejectReason=reason;
+  if(ok){
+    if(r.kind==='앱 등록'&&a){a.status='live';if(!S.urls.some(u=>u.appId===a.id&&u.type==='Private'))S.urls.push({id:uid('u'),appId:a.id,type:'Private',url:`https://${DOMAIN}/r/${a.slug}`,expires:'',views:0,blocked:false})}
+    if(r.kind==='Public URL 발급'&&a){a.vis='Public';S.urls.push({id:uid('u'),appId:a.id,type:'Public',url:`https://${DOMAIN}/p/${Math.random().toString(36).slice(2,8)}`,expires:addDays(ymd(new Date()),r.days||30),views:0,blocked:false})}
+    if(r.kind==='데이터 사용'&&r.dataId){const d=dataById(r.dataId);if(d)d.access='허용'}
+    if(r.kind==='데이터 연결'&&r.dataId){const d=dataById(r.dataId);if(d)d.access='허용'}
+  }else{
+    if(r.kind==='앱 등록'&&a)a.status='rejected';
+    if((r.kind==='데이터 사용'||r.kind==='데이터 연결')&&r.dataId){const d=dataById(r.dataId);if(d)d.access='요청 필요'}
+  }
+  notify(r.by,`${a?a.name:''} ${r.kind} 요청이 ${r.status}되었습니다`,ok?'admin-approved':'admin-rejected');
+  toast(`${r.kind} 요청을 ${r.status}했습니다`);
+}
+
+/* ---------- 이벤트 ---------- */
+const ACT={
+  login:()=>openModal({type:'login'}),
+  loginAs:el=>{S.user=el.dataset.v;if(DEPTS.includes(U().dept))S.st.dept=U().dept;closeModal();toast(`${U().name}(${U().role})으로 로그인했습니다`);commit()},
+  logout:()=>{S.user=null;toast('로그아웃했습니다');commit()},
+  mode:el=>{S.mode=el.dataset.v;applyMode();commit()},
+  goApprovals:()=>{if(gate('login'))go('admin-pending')},
+  close:()=>closeModal(),
+  scrim:(el,e)=>{if(e.target===el)closeModal()},
+  open:el=>openModal({type:'open',id:el.dataset.id}),
+  manage:el=>{S.appSel=el.dataset.id;closeModal();save();go('admin-settings')},
+  copy:el=>copyText(el.dataset.text),
+  catCat:el=>{S.catCat=el.dataset.v;commit()},
+  startWish:el=>{const w=S.wishes.find(x=>x.id===el.dataset.id);if(!gate('make'))return;
+    w.stage='제작 중';if(w.data==='int'){S.st.prompt=w.title;S.cur=null;save();go('studio-new')}else{NF.title=w.title;save();go('catalog-new')}},
+  delWish:el=>{S.wishes=S.wishes.filter(w=>w.id!==el.dataset.id);commit()},
+  pinMemo:el=>{const m=S.memos.find(x=>x.id===el.dataset.id);m.pin=!m.pin;commit()},
+  delMemo:el=>{S.memos=S.memos.filter(m=>m.id!==el.dataset.id);commit();toast('메모를 지웠습니다')},
+  readAll:()=>{S.notis.forEach(n=>{if(n.to===U().name)n.read=true});commit()},
+  noti:el=>{const n=S.notis.find(x=>x.id===el.dataset.id);n.read=true;save();go(n.go)},
+  redeploy:el=>{if(!gate('make'))return;const a=app(el.dataset.id);a.ver+=1;startBuild(a,a.status==='failed'?'의존성 수정 후 재배포':'최신 소스 반영');commit();toast(`${a.name} v${a.ver} 빌드를 시작했습니다`)},
+  studioPreset:el=>{if(!gate('make'))return;const p=PRESETS[el.dataset.v];Object.assign(S.st,{prompt:p.prompt,skills:p.skills.slice(),data:p.data.filter(id=>{const d=dataById(id);return d&&d.access==='허용'}),out:el.dataset.v,pick:false});S.cur=null;save();go('studio-new')},
+  studioPick:el=>{S.studioView=el.dataset.id;commit()},
+  genOpen:el=>{const g=S.gens.find(x=>x.id===el.dataset.id);if(!g)return;S.cur=g.id;S.resTab='preview';Object.assign(S.st,{prompt:g.prompt,model:g.model,skills:g.skills.slice(),data:g.sources.slice(),dept:g.dept});save();go('studio-new')},
+  studioSave:el=>{
+    if(!gate('make'))return;
+    const o=S.gens.find(x=>x.id===el.dataset.id)||defaultStudio(el.dataset.id.replace('sample-',''));
+    const name=`${o.dept} ${TITLES[o.type]}`;const slug=(o.type+'-'+Math.random().toString(36).slice(2,6));
+    const a={id:uid('a'),name,slug,cat:'현황 보고',src:'Studio',llm:`${o.model} (사내)`,status:'pending',vis:'Private',owner:U().name,dept:o.dept,views:0,updated:ymd(new Date()),ver:1,data:o.sources.slice(),desc:`Studio에서 사내 LLM으로 만든 ${TITLES[o.type]}`};
+    S.apps.unshift(a);S.deploys.unshift({appId:a.id,ver:1,at:stamp(new Date()),by:a.owner,result:'성공',note:`Studio 생성 v${o.rev||1}`,src:`Studio · ${o.model}`});
+    S.approvals.unshift({id:uid('r'),kind:'앱 등록',appId:a.id,by:a.owner,reason:'Studio 결과물을 팀 공유 앱으로 등록',date:ymd(new Date()),status:'대기'});
+    if(!isAdmin())notify('최관리',`${name} 앱 등록 요청`,'admin-pending');
+    commit();toast(`${name}을 앱으로 저장했습니다. 관리자 승인 후 URL이 열립니다`);
+  },
+  stSkillOff:el=>{S.st.skills=S.st.skills.filter(x=>x!==el.dataset.id);commit()},
+  stPicker:()=>{S.st.pick=!S.st.pick;commit()},
+  stData:el=>{const id=el.dataset.id,d=S.st.data;S.st.data=d.includes(id)?d.filter(x=>x!==id):d.concat(id);commit()},
+  stQuick:el=>{S.st.prompt=el.dataset.v;commit();const t=$('#st-prompt');if(t)t.focus()},
+  resTab:el=>{S.resTab=el.dataset.v;commit()},
+  copyCode:()=>{const c=$('#gen-code');if(c)copyText(c.textContent)},
+  xlDemo:()=>toast('생성된 앱에서는 표 내용을 xlsx로 내려받습니다. 미리보기에서는 동작하지 않습니다'),
+  useTpl:el=>{const t=TPLS.find(x=>x.id===el.dataset.id);if(!gate('make'))return;
+    if(t.to==='studio'){const p=PRESETS[t.st];Object.assign(S.st,{prompt:p.prompt,skills:p.skills.slice(),data:p.data.filter(id=>dataById(id).access==='허용'),out:t.st});S.cur=null;save();go('studio-new')}else{NF.title=t.name;go('catalog-new')}},
+  nfSrc:el=>{NF.src=el.dataset.v;NF.err='';render()},
+  nfEnv:()=>{NF.envOpen=!NF.envOpen;if(NF.envOpen&&!NF.env.length)NF.env.push({k:'',v:''});render()},
+  nfEnvAdd:()=>{NF.env.push({k:'',v:''});render()},
+  nfEnvDel:el=>{NF.env.splice(+el.dataset.i,1);render()},
+  nfCancel:()=>{NF={title:'',desc:'',cat:'',src:'ZIP',file:null,repo:'',branch:'main',env:[],envOpen:false,err:''};go('catalog-reports')},
+  skNew:()=>{S.skForm=!S.skForm;commit()},
+  skView:el=>openModal({type:'skill',id:el.dataset.id}),
+  skUse:el=>{const id=el.dataset.id;if(!S.st.skills.includes(id))S.st.skills.push(id);closeModal();save();go('studio-new');toast('Studio 요청에 스킬을 넣었습니다')},
+  skDel:el=>{const k=skillById(el.dataset.id);if(k.base&&!isAdmin()){toast('기본 적용 스킬은 관리자만 지울 수 있습니다');return}S.skills=S.skills.filter(x=>x!==k);S.st.skills=S.st.skills.filter(x=>x!==k.id);commit();toast(`${k.name} 스킬을 지웠습니다`)},
+  reqData:el=>{if(!gate('make'))return;const d=dataById(el.dataset.id);d.access='승인 대기';const a=myApps()[0];
+    S.approvals.unshift({id:uid('r'),kind:'데이터 사용',appId:a?a.id:'',dataId:d.id,by:U().name,reason:'Studio 보고서 작성에 사용',date:ymd(new Date()),status:'대기'});commit();toast(`${d.name} 사용 요청을 보냈습니다`)},
+  approve:el=>{if(!gate('admin'))return;decide(el.dataset.id,true);commit()},
+  reject:el=>{if(!gate('admin'))return;openModal({type:'reject',id:el.dataset.id})},
+  rejectDo:el=>{const t=$('#rj-text').value.trim();if(!t){$('#rj-err').textContent='반려 사유를 적어 주세요';return}decide(el.dataset.id,false,t);closeModal();commit()},
+  cancelReq:el=>{const r=S.approvals.find(x=>x.id===el.dataset.id);if(r.dataId){const d=dataById(r.dataId);if(d&&d.access==='승인 대기')d.access='요청 필요'}S.approvals=S.approvals.filter(x=>x!==r);commit();toast('요청을 취소했습니다')},
+  reRequest:el=>{const r=S.approvals.find(x=>x.id===el.dataset.id);r.status='대기';r.date=ymd(new Date());r.reason=r.reason+' (수정 후 재요청)';delete r.rejectReason;delete r.decidedBy;delete r.decidedAt;const a=app(r.appId);if(a&&r.kind==='앱 등록')a.status='pending';commit();toast('다시 요청했습니다');go('admin-pending')},
+  pubReq:()=>{if(gate('make'))openModal({type:'pubreq'})},
+  pubReqDo:()=>{const reason=$('#pr-reason').value.trim();if(!reason){$('#pr-err').textContent='사유를 적어 주세요';return}
+    S.approvals.unshift({id:uid('r'),kind:'Public URL 발급',appId:$('#pr-app').value,by:U().name,reason,days:+$('#pr-days').value,date:ymd(new Date()),status:'대기'});closeModal();commit();toast('Public URL 발급을 요청했습니다')},
+  extend:el=>{const u=S.urls.find(x=>x.id===el.dataset.id);const base=u.expires&&u.expires>ymd(new Date())?u.expires:ymd(new Date());u.expires=addDays(base,30);commit();toast(`만료일을 ${u.expires}로 바꿨습니다`)},
+  block:el=>{const u=S.urls.find(x=>x.id===el.dataset.id);u.blocked=!u.blocked;commit();toast(u.blocked?'링크를 차단했습니다':'차단을 풀었습니다')},
+  delPerm:el=>{S.perm[S.appSel].splice(+el.dataset.i,1);commit()},
+  showEnv:el=>{const e=S.env[S.appSel][+el.dataset.i];e.show=!e.show;render()},
+  delEnv:el=>{S.env[S.appSel].splice(+el.dataset.i,1);commit();toast('다음 배포부터 적용됩니다')},
+  delApp:el=>openModal({type:'delApp',id:el.dataset.id}),
+  delAppDo:el=>{const id=el.dataset.id;const a=app(id);S.apps=S.apps.filter(x=>x.id!==id);S.urls=S.urls.filter(u=>u.appId!==id);delete S.perm[id];delete S.env[id];closeModal();commit();toast(`${a.name}을 삭제했습니다`)},
+  reset:()=>openModal({type:'reset'}),
+  resetDo:()=>{const u=S.user,m=S.mode;S=seed();S.user=u;S.mode=m;closeModal();commit();toast('예시 데이터로 되돌렸습니다')},
+  delMore:el=>{S.moreItems=S.moreItems.filter(m=>m.id!==el.dataset.id);commit()}
+};
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;
+  const fn=ACT[el.dataset.act];if(!fn)return;
+  if(el.tagName==='BUTTON'||el.dataset.act==='scrim')fn(el,e);
+});
+
+const FORM={
+  wish:()=>{const t=$('#w-title').value.trim();if(!t)return;if(!gate('login'))return;S.wishes.unshift({id:uid('w'),owner:U().name,title:t,data:$('#w-data').value,stage:'아이디어',at:ymd(new Date())});commit();toast('만들고 싶은 앱에 추가했습니다')},
+  memo:()=>{const t=$('#m-text').value.trim();if(!t)return;S.memos.unshift({id:uid('m'),owner:S.user?U().name:'손님',text:t,pin:false,at:stamp(new Date())});commit();toast('메모를 저장했습니다')},
+  newReport:()=>{
+    if(!gate('make'))return;
+    if(!nfReady()){NF.err=!NF.title.trim()?'제목을 적어 주세요':NF.src==='ZIP'?'ZIP 파일을 올려 주세요':'저장소 주소를 https://… 형식으로 적어 주세요';render();return}
+    const base=NF.src==='ZIP'?NF.file.name.replace(/\.zip$/i,''):NF.repo.trim().replace(/\/+$/,'').split('/').pop().replace(/\.git$/,'');
+    let slug=base.toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/^-+|-+$/g,'')||('report-'+Math.random().toString(36).slice(2,6));
+    if(S.apps.some(a=>a.slug===slug))slug+='-'+Math.random().toString(36).slice(2,5);
+    const a={id:uid('a'),name:NF.title.trim(),slug,cat:NF.cat||'현황 보고',src:NF.src,llm:'외부 LLM',status:'building',vis:'Private',owner:U().name,dept:U().dept,views:0,updated:ymd(new Date()),ver:1,data:[],desc:NF.desc.trim()||'설명 없음',branch:NF.branch||'main',file:NF.file?NF.file.name:''};
+    const env=NF.env.filter(e=>e.k.trim()).map(e=>({k:e.k.trim().toUpperCase(),v:e.v,secret:true}));
+    if(env.length)S.env[a.id]=env;
+    S.apps.unshift(a);startBuild(a,'첫 등록');NF={title:'',desc:'',cat:'',src:'ZIP',file:null,repo:'',branch:'main',env:[],envOpen:false,err:''};
+    save();toast('보고서를 만들었습니다. 빌드를 시작합니다');go('catalog-mine');
+  },
+  gen:()=>{
+    if(!gate('make'))return;
+    const c=S.st;c.prompt=$('#st-prompt').value.trim();
+    if(!c.prompt){toast('만들 내용을 적어 주세요');$('#st-prompt').focus();return}
+    if(!c.data.length){toast('내부 데이터를 하나 이상 고르세요');return}
+    const type=detectType(c.prompt,c.out);
+    if(type!=='weekly'&&!c.data.includes('sales')){toast(`${TITLES[type]}에는 영업 DB가 필요합니다`);return}
+    const g={id:uid('g'),type,prompt:c.prompt,model:c.model,skills:c.skills.slice(),sources:c.data.slice(),dept:c.dept,period:type==='monthly'?'10':(/지난주|지난 주/.test(c.prompt)?'last':'this'),note:'',at:stamp(new Date()),by:U().name,rev:1,turns:[c.prompt]};
+    runSteps(()=>{S.gens.unshift(g);S.cur=g.id;S.resTab='preview';g.skills.forEach(id=>{const k=skillById(id);if(k)k.uses=(k.uses||0)+1});commit();
+      const r=$('#gen-result');if(r)r.scrollIntoView({behavior:'smooth',block:'start'});toast(`${TITLES[type]} 초안을 만들었습니다`)});
+  },
+  refine:()=>{
+    const g=S.gens.find(x=>x.id===S.cur);const t=$('#rf-text').value.trim();if(!g||!t)return;
+    if(/엑셀/.test(t)&&!g.skills.includes('k-excel'))g.skills.push('k-excel');
+    if(/차트|그래프/.test(t)&&!g.skills.includes('k-chart'))g.skills.push('k-chart');
+    if(/대시보드로/.test(t))g.type='dashboard';else if(/주간보고로/.test(t))g.type='weekly';else if(/(월간|실적 보고서)로/.test(t)&&g.sources.includes('sales'))g.type='monthly';
+    if(/지난주|지난 주/.test(t))g.period='last';
+    g.turns.push(t);g.note=t;g.rev++;g.at=stamp(new Date());
+    runSteps(()=>{commit();toast(`v${g.rev}로 고쳤습니다`)},true);
+  },
+  skill:()=>{
+    const name=$('#sk-name').value.trim(),body=$('#sk-body').value;
+    if(!name){$('#sk-err').textContent='이름을 적어 주세요';return}
+    let file=$('#sk-file-name').value.trim()||name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'skill-'+Math.random().toString(36).slice(2,5);
+    if(!/\.md$/.test(file))file+='.md';
+    addSkill({name,file,body,desc:$('#sk-desc').value.trim()});S.skForm=false;commit();toast(`${name} 스킬을 추가했습니다`);
+  },
+  conn:()=>{
+    if(!gate('make'))return;
+    const name=$('#cn-name').value.trim();if(!name){$('#cn-err').textContent='이름을 적어 주세요';return}
+    const kind=document.querySelector('input[name=cn-kind]:checked').value,id=uid('d');
+    if(kind==='ext'){S.ext.push({id,name,org:$('#cn-org').value.trim()||'-',how:$('#cn-type').value,envKey:$('#cn-env').value.trim()||'-',cycle:'-'});commit();toast('외부 데이터를 추가했습니다');go('data-ext')}
+    else{S.int.push({id,name,kind:$('#cn-type').value,owner:$('#cn-org').value.trim()||U().dept,tables:'-',access:isAdmin()?'허용':'승인 대기'});
+      if(!isAdmin())S.approvals.unshift({id:uid('r'),kind:'데이터 연결',appId:'',dataId:id,by:U().name,reason:`${name} 내부 연결 추가`,date:ymd(new Date()),status:'대기'});
+      commit();toast(isAdmin()?'내부 연결을 추가했습니다':'관리자 승인 후 Studio에서 쓸 수 있습니다');go('data-int')}
+  },
+  perm:()=>{const who=$('#pm-who').value.trim();if(!who)return;S.perm[S.appSel].push({who,type:$('#pm-type').value,role:'열람'});commit();toast(`${who}에게 열람 권한을 줬습니다`)},
+  env:()=>{const k=$('#ev-k').value.trim().toUpperCase(),v=$('#ev-v').value;
+    if(!/^[A-Z_][A-Z0-9_]*$/.test(k)){$('#ev-err').textContent='영문 대문자·숫자·밑줄로 적어 주세요';return}
+    if(!v){$('#ev-err').textContent='값을 적어 주세요';return}
+    const list=S.env[S.appSel];const ex=list.find(e=>e.k===k);if(ex){ex.v=v;ex.secret=$('#ev-s').checked}else list.push({k,v,secret:$('#ev-s').checked});commit();toast('저장했습니다. 다음 배포부터 적용됩니다')},
+  settings:()=>{const a=app(S.appSel),slug=$('#se-slug').value.trim();
+    if(!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)){$('#se-err').textContent='영문 소문자·숫자·하이픈만 쓸 수 있습니다';return}
+    if(S.apps.some(x=>x.slug===slug&&x.id!==a.id)){$('#se-err').textContent='이미 쓰는 주소입니다';return}
+    const old=a.slug;a.name=$('#se-name').value.trim()||a.name;a.slug=slug;a.cat=$('#se-cat').value;a.sleep=$('#se-sleep').value;a.desc=$('#se-desc').value.trim();
+    if(old!==slug)S.urls.forEach(u=>{if(u.appId===a.id&&u.type==='Private')u.url=`https://${DOMAIN}/r/${slug}`});commit();toast('설정을 저장했습니다')},
+  more:()=>{const t=$('#mo-t').value.trim();if(!t)return;S.moreItems.unshift({id:uid('x'),t,p:$('#mo-p').value,by:U().name,at:ymd(new Date())});commit()}
+};
+document.addEventListener('submit',e=>{const f=e.target.closest('form[data-form]');if(!f)return;e.preventDefault();const fn=FORM[f.dataset.form];if(fn)fn()});
+
+document.addEventListener('change',e=>{
+  const el=e.target;const k=el.dataset.change;
+  if(k==='stage'){S.wishes.find(w=>w.id===el.dataset.id).stage=el.value;save()}
+  else if(k==='appsel'){S.appSel=el.value;commit()}
+  else if(k==='role'){S.perm[S.appSel][+el.dataset.i].role=el.value;save();toast('역할을 바꿨습니다')}
+  else if(k==='stModel'){S.st.model=el.value;commit()}
+  else if(k==='stOut'){S.st.out=el.value;commit()}
+  else if(k==='stDept'){S.st.dept=el.value;commit()}
+  else if(k==='stSkill'){const id=el.value;S.st.skills=el.checked?S.st.skills.concat(id):S.st.skills.filter(x=>x!==id);commit()}
+  else if(k==='skOn'){const sk=skillById(el.dataset.id);sk.on=el.checked;if(!sk.on)S.st.skills=S.st.skills.filter(x=>x!==sk.id);commit();toast(sk.on?'Studio에서 쓸 수 있습니다':'Studio 선택 목록에서 뺐습니다')}
+  else if(k==='skBase'){if(!isAdmin()){el.checked=!el.checked;toast('기본 적용은 관리자만 바꿉니다');return}skillById(el.dataset.id).base=el.checked;commit()}
+  else if(el.id==='nf-file'){nfFile(el.files[0])}
+  else if(el.id==='sk-up'){const f=el.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{addSkill({file:f.name,body:String(rd.result),size:fsize(f.size)});commit();toast('스킬 파일을 올렸습니다')};rd.readAsText(f)}
+
+  else if(el.id==='cat-status'){S.catStatus=el.value;commit()}
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.nf){NF[t.dataset.nf]=t.value;const b=$('#nf-submit');if(b)b.disabled=!nfReady();return}
+  if(t.dataset.nfenv){NF.env[+t.dataset.i][t.dataset.nfenv]=t.value;return}
+  if(t.id==='sk-q'){S.skQ=t.value;clearTimeout(window._sq);window._sq=setTimeout(()=>{render();const q=$('#sk-q');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}},250);return}
+  if(t.id==='st-prompt'){S.st.prompt=t.value;clearTimeout(window._pt);window._pt=setTimeout(save,400);return}
+  if(e.target.id==='cat-q'){S.catQ=e.target.value;save();clearTimeout(window._qt);window._qt=setTimeout(()=>{const pos=e.target.selectionStart;render();const q=$('#cat-q');if(q){q.focus();try{q.setSelectionRange(pos,pos)}catch(_){}}},250)}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&M)closeModal()});
+document.addEventListener('dragover',e=>{const d=e.target.closest&&e.target.closest('#nf-drop');if(d){e.preventDefault();d.classList.add('over')}});
+document.addEventListener('dragleave',e=>{const d=e.target.closest&&e.target.closest('#nf-drop');if(d)d.classList.remove('over')});
+document.addEventListener('drop',e=>{const d=e.target.closest&&e.target.closest('#nf-drop');if(d){e.preventDefault();nfFile(e.dataTransfer.files[0])}});
+window.addEventListener('hashchange',()=>{R=parseHash();closeModal();render();window.scrollTo(0,0)});
+
+const hdrRO=new ResizeObserver(()=>{document.documentElement.style.setProperty('--hdr',$('#top').offsetHeight+'px')});
+hdrRO.observe($('#top'));
+
+if(!S.mode){let dark=false;try{dark=document.documentElement.dataset.theme==='dark'||(!document.documentElement.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches)}catch(e){}S.mode=dark?'dark':'light'}
+applyMode();
+R=parseHash();
+render();
+if(S.apps.some(a=>a.status==='building'))ensureTicker();
+}
+</script>
+</body>
+</html>
